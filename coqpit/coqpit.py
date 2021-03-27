@@ -2,7 +2,7 @@ import os
 import json
 from pprint import pprint
 from dataclasses import asdict, dataclass, fields, is_dataclass
-from typing import get_type_hints
+from typing import get_type_hints, Any
 
 
 def check_argument(name,
@@ -57,8 +57,8 @@ def check_argument(name,
     # check if None allowed
     if allow_none and c[name] is None:
         return
-    else:
-        assert not allow_none and c[name] is not None, f" [!] None value is not allowed for {name}."
+    if not allow_none:
+        assert c[name] is not None, f" [!] None value is not allowed for {name}."
     # check value constraints
     if name in c.keys():
         if max_val is not None:
@@ -126,25 +126,32 @@ def _decode_dataclass(cls, dump_dict, cls_type=None):
     return cls
 
 
-def decorate_all_functions(function_decorator):
-    def decorator(cls):
-        for name, obj in vars(cls).items():
-            if callable(obj):
-                try:
-                    obj = obj.__func__  # unwrap Python 2 unbound method
-                except AttributeError:
-                    pass  # not needed in Python 3
-                setattr(cls, name, function_decorator(obj))
-        return cls
-    return decorator
-
-
-@dataclass(frozen=True)
+@dataclass
 class Coqpit:
     """Base Coqpit dataclass to be inherited by custom dataclasses intended to be used for project configuration.
     It provides export, import abilities to and from json files. You can also update dataclass values from
     ```argparse``` namespace that enables updating dataclass values from commandline arguments.
     """
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Run type checking for every new value assignment"""
+        types = my_get_type_hints(self)
+        type_annot = types[name]
+        # allow None without type checking
+        if value is not None:
+            # type checking for list dict values against List, Dict typings.
+            if isinstance(value, (list, dict)):
+                type_origin = type_annot.__origin__
+                type_args = type_annot.__args__
+                if not isinstance(value, type_origin) or not (len(value) > 0 and isinstance(value[0], type_args[0])):
+                    raise ValueError(f" [!] Value type {type(value)} is not same with the field type {types[name]}")
+            else:
+                # compare value type with field type allowing None as value
+                if not isinstance(value, types[name]):
+                    raise ValueError(f" [!] Value type {type(value)} is not same with the field type {types[name]}")
+        self.__dict__[name] = value
+        # run other checks too. TODO: call only for updated field
+        self.__post_init__()
 
     def update(self, new):
         """Update Coqpit fields by the input ```dict```.
