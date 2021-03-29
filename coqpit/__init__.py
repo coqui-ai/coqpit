@@ -1,2 +1,1 @@
-from coqpit.coqpit import Coqpit
-__all__ = ["Coqpit"]
+from coqpit.coqpit import Coqpit, check_argument

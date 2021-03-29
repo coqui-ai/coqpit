@@ -11,7 +11,7 @@ class SimpleConfig(Coqpit):
     val_b: int = None
     val_c: str = "Coqpit is great!"
 
-    def __post_init__(self,):
+    def check_values(self,):
         '''Check config fields'''
         c = asdict(self)
         check_argument('val_a', c, restricted=True, min_val=10, max_val=2056)
@@ -20,11 +20,9 @@ class SimpleConfig(Coqpit):
 
 
 if __name__ == '__main__':
+    file_path = os.path.dirname(os.path.abspath(__file__))
     config = SimpleConfig()
     print(config.to_json())
-    config.save_json('example_config.json')
-    config.load_json('example_config2.json')
-    print(config.to_json())
-
-    # this outputs
-    # >>> AssertionError:  [!] val_a is smaller than min value 10
+    config.save_json(os.path.join(file_path, 'example_config.json'))
+    config.load_json(os.path.join(file_path, 'example_config.json'))
+    print(config.pprint())

@@ -1,20 +1,22 @@
-import os
+import argparse
 import json
-from pprint import pprint
+import os
+from abc import abstractmethod
 from dataclasses import asdict, dataclass, fields, is_dataclass
-from typing import get_type_hints, Any
+from pprint import pprint
+from typing import Any, get_type_hints
 
 
 def check_argument(name,
                    c,
-                   is_path=False,
-                   prerequest=None,
-                   enum_list=None,
-                   max_val=None,
-                   min_val=None,
-                   restricted=False,
-                   alternative=None,
-                   allow_none=False):
+                   is_path:bool=False,
+                   prerequest:str=None,
+                   enum_list:list=None,
+                   max_val:float=None,
+                   min_val:float=None,
+                   restricted:bool=False,
+                   alternative:str=None,
+                   allow_none:bool=True) -> None:
     """Simple type and value checking for Coqpit.
     It is intended to be used under ```__post_init__()``` of config dataclasses.
 
@@ -69,7 +71,7 @@ def check_argument(name,
             assert c[name].lower() in enum_list, f' [!] {name} is not a valid value'
 
 
-def my_get_type_hints(cls):  # handle this python bug https://github.com/python/typing/issues/737
+def my_get_type_hints(cls):  # handle this python issue https://github.com/python/typing/issues/737
     r_dict = {}
     for base in  cls.__class__.__bases__:
         if base == object:
@@ -79,10 +81,11 @@ def my_get_type_hints(cls):  # handle this python bug https://github.com/python/
     return r_dict
 
 
-def _decode_dataclass(cls, dump_dict, cls_type=None):
-    """Parse the input dict and assign values to ```cls``` for the matching keywords to fields.
+def _decode_dataclass(cls:dataclass, dump_dict:dict, cls_type=None) -> dataclass:
+    """Decode the input dictionary to the dataclass.
 
     Args:
+        cls (Dataclass): target dataclass to be parsed from the input dictionary.
         dump_dict (dict): dictionary with new field values.
         cls_type (type, optional): type of the cls object to enable type cheking for non-initialized Coqpit sub-fields.
             Defaults to None.
@@ -97,27 +100,57 @@ def _decode_dataclass(cls, dump_dict, cls_type=None):
     cls = cls_type() if cls is None else cls
     init_kwargs = {}
     types = my_get_type_hints(cls)
+
+    # check all the external fields exist in the cls
+    for k in dump_dict:
+        if k not in asdict(cls):
+            raise KeyError(f" [!] '{k}' from the input file is not defined.")
+
+    # import external values to the cls
     for field in fields(cls):
+
+        # pass fields not defined in the input file.
         if field.name not in dump_dict:
             continue
-
-        field_value = dump_dict[field.name]
-
+        import_value = dump_dict[field.name]
         field_type = types[field.name]
-        if field_value is None:
-            init_kwargs[field.name] = field_value
+
+        # if None just import the value
+        if import_value is None:
+            init_kwargs[field.name] = import_value
             continue
 
         if is_dataclass(field_type):
-            if is_dataclass(field_value):
-                value = field_value
+            # if the field is anothe dataclass run recursively.
+            if is_dataclass(import_value):
+                imported_value = import_value
             else:
-                value = _decode_dataclass(vars(cls)[field.name], field_value, field_type)
-
-            init_kwargs[field.name] = value
+                imported_value = _decode_dataclass(vars(cls)[field.name], import_value, field_type)
+            init_kwargs[field.name] = imported_value
+        elif '__origin__' in field_type.__dict__ :
+            if field_type.__origin__ is list:
+                # if the field is a list, import each item in the list.
+                field_types_in_list = field_type.__args__
+                if len(import_value) > len(field_types_in_list):
+                    field_types_in_list *= len(import_value)
+                imported_values = []
+                for ft, v in zip(field_types_in_list, import_value):
+                    if is_dataclass(ft):
+                        if is_dataclass(v):
+                            imported_value = v
+                        else:
+                            imported_value = _decode_dataclass(None, v, ft)
+                        imported_values.append(imported_value)
+                    else:
+                        imported_value = v
+                        imported_values.append(imported_value)
+                init_kwargs[field.name] = imported_values
+            else:
+                raise ValueError(f' [!] Value type `{field_type.__origin__ }` is not supported.')
         else:
-            if isinstance(field_value, field_type):
-                init_kwargs[field.name] = field_value
+            # if no dataclass import the value
+            if isinstance(import_value, field_type):
+                init_kwargs[field.name] = import_value
             else:
                 raise ValueError()
 
@@ -128,32 +161,59 @@ def _decode_dataclass(cls, dump_dict, cls_type=None):
 
 @dataclass
 class Coqpit:
-    """Base Coqpit dataclass to be inherited by custom dataclasses intended to be used for project configuration.
-    It provides export, import abilities to and from json files. You can also update dataclass values from
-    ```argparse``` namespace that enables updating dataclass values from commandline arguments.
-    """
+    '''Coqpit base class to be inherited by any future Coqpit dataclasses.
+    It enables serializing/deserializing a dataclass to/from a json file, plus some semi-dynamic type and value check.
+    Note that it does not support all datatypes and likely to fail in some special cases.
+    '''
 
     def __setattr__(self, name: str, value: Any) -> None:
-        """Run type checking for every new value assignment"""
-        types = my_get_type_hints(self)
-        type_annot = types[name]
-        # allow None without type checking
-        if value is not None:
-            # type checking for list dict values against List, Dict typings.
-            if isinstance(value, (list, dict)):
-                type_origin = type_annot.__origin__
-                type_args = type_annot.__args__
-                if not isinstance(value, type_origin) or not (len(value) > 0 and isinstance(value[0], type_args[0])):
-                    raise ValueError(f" [!] Value type {type(value)} is not same with the field type {types[name]}")
-            else:
-                # compare value type with field type allowing None as value
-                if not isinstance(value, types[name]):
-                    raise ValueError(f" [!] Value type {type(value)} is not same with the field type {types[name]}")
-        self.__dict__[name] = value
-        # run other checks too. TODO: call only for updated field
-        self.__post_init__()
+        """Run type checking for every new value assignment
+        TODO: It is more than I can chew 😅"""
+        # if inspect.isclass(value):
+        super().__setattr__(name, value)
+        # else:
+        #     types = my_get_type_hints(self)
+        #     type_annot = types[name]
 
-    def update(self, new):
+        #     # allow None without type checking
+        #     if value is not None:
+        #         # type checking for list dict values against List, Dict typings.
+        #         if isinstance(value, (list, dict)):
+        #             type_origin = type_annot.__origin__
+        #             type_args = type_annot.__args__
+        #             if not isinstance(value, type_origin) or not (len(value) > 0 and isinstance(value[0], type_args[0])):
+        #                 raise ValueError(f" [!] {name} Value type {type(value)} is not same with the field type {types[name]}")
+        #         else:
+        #             # compare value type with field type allowing None as value
+        #             if not isinstance(value, types[name]):
+        #                 try:
+        #                     value = types[name](value)
+        #                 except:
+        #                     raise ValueError(f" [!] {name} Value type {type(value)} is not same with the field type {types[name]}")
+
+        #     self.__dict__[name] = value
+        #     # run other checks too. TODO: call only for updated field
+        # self.check_values()
+
+    def __set_fields(self):
+        '''Create a list of fields defined at the object initialization'''
+        self.__fields__ = asdict(self).keys()
+
+    def __post_init__(self):
+        self.__set_fields()
+        try:
+            self.check_values()
+        except AttributeError:
+            pass
+
+    def __getitem__(self, arg:str):
+        '''Access class attributes with ``[arg]``.'''
+        return asdict(self)[arg]
+
+    def check_values(self):
+        pass
+
+    def update(self, new:dict) -> None:
         """Update Coqpit fields by the input ```dict```.
 
         Args:
@@ -165,22 +225,16 @@ class Coqpit:
             else:
                 raise KeyError(f' [!] No key - {key}')
 
-    def pprint(self):
+    def pprint(self) -> None:
         """Print Coqpit fields in a format.
         """
         pprint(asdict(self))
 
-    def _type_check(self, func):
-        def with_type_check(self):
-            r = func()
-            self.__post_init__()
-            return r
-        return with_type_check
-
-    def to_json(self):
+    def to_json(self) -> str:
+        """Returns a JSON string representation."""
         return json.dumps(asdict(self))
 
-    def save_json(self, file_name):
+    def save_json(self, file_name:str) -> None:
         """Save Coqpit to a json file.
 
         Args:
@@ -189,7 +243,7 @@ class Coqpit:
         with open(file_name, 'w', encoding='utf8') as f:
             json.dump(asdict(self), f)
 
-    def load_json(self, file_name):
+    def load_json(self, file_name:str) -> None:
         """Load a json file and update matching config fields with type checking.
         Non-matching parameters in the json file are ignored.
 
@@ -203,10 +257,10 @@ class Coqpit:
             input_str = f.read()
             dump_dict = json.loads(input_str)
         self = _decode_dataclass(self, dump_dict)
-        self.__post_init__()
+        self.check_values()
 
     @classmethod
-    def _parse_argparse(cls, args_dict):
+    def _parse_argparse(cls, args_dict:dict) -> dict:
         """Parse argsparse dict and convert arguments with dot notation to nested dictionaries
 
         Args:
@@ -225,7 +279,7 @@ class Coqpit:
                 new_dict[k] = v
         return new_dict
 
-    def from_argparse(self, args):
+    def from_argparse(self, args:argparse.Namespace) -> None:
         """Update config values from argparse arguments.
 
         Args:
@@ -237,4 +291,4 @@ class Coqpit:
         args_dict = vars(args)
         args_dict = self._parse_argparse(args_dict)
         self = _decode_dataclass(self, args_dict)
-        self.__post_init__()
+        self.check_values()
