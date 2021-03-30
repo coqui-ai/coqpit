@@ -213,6 +213,9 @@ class Coqpit:
     def check_values(self):
         pass
 
+    def has(self, arg:str) -> bool:
+        return arg in vars(self)
+
     def update(self, new:dict) -> None:
         """Update Coqpit fields by the input ```dict```.
 
@@ -259,28 +262,8 @@ class Coqpit:
         self = _decode_dataclass(self, dump_dict)
         self.check_values()
 
-    @classmethod
-    def _parse_argparse(cls, args_dict:dict) -> dict:
-        """Parse argsparse dict and convert arguments with dot notation to nested dictionaries
-
-        Args:
-            args_dict (dict): dictionary with dot notation keys.
-
-        Returns:
-            dict: dictionary in which dot notation keywords are converted to nested dictionary entries.
-        """
-        new_dict = {}
-        for k, v in args_dict.items():
-            if '.' in k:
-                new_key, rest = k.split('.', 1)
-                o_dict = cls._parse_argparse({rest: v})
-                new_dict[new_key] = o_dict
-            else:
-                new_dict[k] = v
-        return new_dict
-
     def from_argparse(self, args:argparse.Namespace) -> None:
-        """Update config values from argparse arguments.
+        """Update config values from argparse arguments with some meta-programming ✨.
 
         Args:
             args (namespace): argeparse namespace as an output of ```argparse.parse_arguments()```.
@@ -289,6 +272,19 @@ class Coqpit:
             Coqpit: new config object with updated values.
         """
         args_dict = vars(args)
-        args_dict = self._parse_argparse(args_dict)
-        self = _decode_dataclass(self, args_dict)
-        self.check_values()
+        for k, v in args_dict.items():
+            if k.startswith('coqpit') and '.' in k:
+                _, k = k.split('.', 1)
+                names = k.split('.')
+                cmd = "self"
+                for name in names:
+                    if str.isnumeric(name):
+                        cmd += f"[{name}]"
+                    else:
+                        cmd += f".{name}"
+                try:
+                    exec(cmd)
+                except AttributeError:
+                    raise AttributeError(f" [!] '{k}' not exist to override from argparse.")
+                cmd += f"= {v}"
+                exec(cmd)
