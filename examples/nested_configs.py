@@ -1,6 +1,6 @@
 import os
 from dataclasses import asdict, dataclass, field
-from coqpit.coqpit import Coqpit, check_argument
+from coqpit import Coqpit, check_argument
 from typing import List, Union
 
 
