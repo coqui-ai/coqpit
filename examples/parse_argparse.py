@@ -6,6 +6,7 @@ from typing import List
 from coqpit.coqpit import Coqpit, check_argument
 import sys
 
+
 @dataclass
 class SimplerConfig(Coqpit):
     val_a: int = field(default=None, metadata={'help': 'this is val_a'})
@@ -37,6 +38,7 @@ class SimpleConfig(Coqpit):
                        allow_none=True)
         check_argument('val_c', c, restricted=True)
 
+
 def main():
     file_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -45,7 +47,13 @@ def main():
     print(config.pprint())
 
     # reference config that we like to match with the config above
-    config_ref = SimpleConfig(val_a=222, val_b=999, val_c='this is different', mylist_with_default=[SimplerConfig(val_a=222), SimplerConfig(val_a=111)])
+    config_ref = SimpleConfig(val_a=222,
+                              val_b=999,
+                              val_c='this is different',
+                              mylist_with_default=[
+                                  SimplerConfig(val_a=222),
+                                  SimplerConfig(val_a=111)
+                              ])
 
     # create and init argparser with Coqpit
     parser = argparse.ArgumentParser()
@@ -58,7 +66,6 @@ def main():
     config.pprint()
     # check the current config with the reference config
     assert config == config_ref
-
 
 
 if __name__ == '__main__':
