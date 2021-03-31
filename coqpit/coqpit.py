@@ -193,6 +193,60 @@ class Serializable:
         return self
 
 
+def _get_help(field):
+    try:
+        field_help = field.metadata['help']
+    except KeyError:
+        field_help = ''
+    return field_help
+
+
+def _init_argparse(parser, field_name, field_type, field_value, field_help, arg_prefix='', help_prefix=''):
+    # print(field_name)
+    arg_prefix = f'{arg_prefix}{field_name}'
+    help_prefix = f'{help_prefix}{field_help}'
+    if isinstance(field_type, dict):
+        # TODO: currently I don't need it
+        NotImplemented
+    elif is_list(field_type):
+        # TODO: We need a more clear help msg for lists.
+        if len(field_type.__args__) > 1:
+            raise ValueError(" [!] Coqpit does not support multi-type hinted 'List'")
+        list_field_type = field_type.__args__[0]
+        if field_value is None:
+            # if the list is None, assume insertion of a new value/object to the list[0]
+            # parser = _init_argparse(parser,
+            #                         '0.',
+            #                         list_field_type,
+            #                         list_field_type(),
+            #                         field_help='',
+            #                         help_prefix=f'insert a new {list_field_type} to index 0 - {help_prefix} - ',
+            #                         arg_prefix=f'{arg_prefix}.')
+            # TODO: it complicates parsing argparse
+            NotImplemented
+        else:
+            # if a list is defined, just enable editing the values from argparse
+            # TODO: allow inserting a new value/obj to the end of the list.
+            for idx, fv in enumerate(field_value):
+                parser = _init_argparse(parser,
+                                        str(idx)+'.',
+                                        list_field_type,
+                                        fv,
+                                        field_help='',
+                                        help_prefix=f'{help_prefix} - ',
+                                        arg_prefix=f'{arg_prefix}.')
+    elif is_union(field_type):
+        # TODO: currently I don't know how to handle Union type on argparse
+        NotImplemented
+    elif issubclass(field_type, Serializable):
+        return field_value.init_argparse(parser, arg_prefix=arg_prefix, help_prefix=help_prefix)
+    elif is_common_type(field_type):
+        parser.add_argument(f'--{arg_prefix}', default=field_value, type=field_type, help=f'{help_prefix}')
+    else:
+        raise NotImplementedError(f" [!] '{field_type}' is not supported by arg_parser. Please file a bug report.")
+    return parser
+
+
 @dataclass
 class Coqpit(Serializable):
     '''Coqpit base class to be inherited by any future Coqpit dataclasses.
@@ -285,22 +339,54 @@ class Coqpit(Serializable):
         """
         args_dict = vars(args)
         for k, v in args_dict.items():
-            if k.startswith('coqpit') and '.' in k:
-                _, k = k.split('.', 1)
-                names = k.split('.')
-                cmd = "self"
-                for name in names:
-                    if str.isnumeric(name):
-                        cmd += f"[{name}]"
-                    else:
-                        cmd += f".{name}"
-                try:
-                    exec(cmd)
-                except AttributeError:
-                    raise AttributeError(f" [!] '{k}' not exist to override from argparse.")
-                cmd += f"= {v}"
+            v_type = type(v)
+            # if k.startswith('coqpit') and '.' in k:
+            # _, k = k.split('.', 1)
+            names = k.split('.')
+            cmd = "self"
+            for name in names:
+                if str.isnumeric(name):
+                    cmd += f"[{name}]"
+                else:
+                    cmd += f".{name}"
+            try:
                 exec(cmd)
+            except AttributeError:
+                raise AttributeError(f" [!] '{k}' not exist to override from argparse.")
+
+            if v is None:
+                cmd += f"= None"
+            elif isinstance(v, str):
+                cmd += f"= v_type('{v}')"
+            else:
+                cmd += f"= v_type({v})"
+
+            # print(cmd)
+            exec(cmd)
         self.check_values()
+
+    def init_argparse(self,
+                      parser: argparse.ArgumentParser,
+                      arg_prefix='',
+                      help_prefix='') -> argparse.ArgumentParser:
+        """Pass Coqpit fields as argparse arguments. This allows to edit values through command-line.
+
+        Args:
+            parser (argparse.ArgumentParser): argparse.ArgumentParser instance.
+            arg_prefix (str, optional): Prefix to be used for the argument name. Defaults to ''.
+            help_prefix (str, optional): Prefix to be used for the argument description. Defaults to ''.
+
+        Returns:
+            argparse.ArgumentParser: parser instance with the new arguments.
+        """
+        class_fields = fields(self)
+        field_value = None
+        for field in class_fields:
+            field_value = vars(self)[field.name]
+            field_type = field.type
+            field_help = _get_help(field)
+            _init_argparse(parser, field.name, field_type, field_value, field_help, arg_prefix, help_prefix)
+        return parser
 
 
 def check_argument(name,

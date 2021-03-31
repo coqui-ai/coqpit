@@ -62,5 +62,3 @@ if __name__ == '__main__':
     config2.from_dict(config_dict)
     # now they should be having the same values.
     assert config == config2
-
-
