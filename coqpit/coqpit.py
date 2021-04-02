@@ -234,12 +234,12 @@ def _init_argparse(parser, field_name, field_type, field_value, field_help, arg_
             # TODO: allow inserting a new value/obj to the end of the list.
             for idx, fv in enumerate(field_value):
                 parser = _init_argparse(parser,
-                                        str(idx)+'.',
+                                        str(idx),
                                         list_field_type,
                                         fv,
                                         field_help='',
                                         help_prefix=f'{help_prefix} - ',
-                                        arg_prefix=f'{arg_prefix}.')
+                                        arg_prefix=f'{arg_prefix}')
     elif is_union(field_type):
         # TODO: currently I don't know how to handle Union type on argparse
         NotImplemented
