@@ -5,7 +5,7 @@ from decimal import Decimal
 from abc import abstractmethod
 from dataclasses import asdict, dataclass, fields, is_dataclass, MISSING, Field
 from pprint import pprint
-from typing import Any, Union, Generic, _GenericAlias, TypeVar, get_type_hints
+from typing import Any, List, Union, Generic, _GenericAlias, TypeVar, get_type_hints
 
 
 T = TypeVar("T")
@@ -286,6 +286,26 @@ class Coqpit(Serializable):
     def __getitem__(self, arg:str):
         '''Access class attributes with ``[arg]``.'''
         return asdict(self)[arg]
+
+    def merge(self, coqpits: Union['Coqpit', List['Coqpit']]):
+        """Merge a coqpit instance or a list of coqpit instances to self.
+        Note that it does not pass the fields and overrides attributes with
+        the last Coqpit instance in the given List.
+        TODO: find a way to merge instances with all the class internals.
+
+        Args:
+            coqpits (Union[Coqpit, List[Coqpit]]): coqpit instance or list of instances to be merged.
+        """
+        def _merge(coqpit):
+            self.__dict__.update(coqpit.__dict__)
+            self.__annotations__.update(coqpit.__annotations__)
+            self.__dataclass_fields__.update(coqpit.__dataclass_fields__)
+
+        if isinstance(coqpits, list):
+            for coqpit in coqpits:
+                _merge(coqpit)
+        else:
+            _merge(coqpits)
 
     def check_values(self):
         pass
