@@ -147,10 +147,10 @@ def main():
 
 
 if __name__ == '__main__':
-    sys.argv.extend(['--val_a', '222'])
-    sys.argv.extend(['--val_b', '999'])
-    sys.argv.extend(['--val_c', 'this is different'])
-    sys.argv.extend(['--mylist_with_default.0.val_a', '222'])
-    sys.argv.extend(['--mylist_with_default.1.val_a', '111'])
+    sys.argv.extend(['--coqpit.val_a', '222'])
+    sys.argv.extend(['--coqpit.val_b', '999'])
+    sys.argv.extend(['--coqpit.val_c', 'this is different'])
+    sys.argv.extend(['--coqpit.mylist_with_default.0.val_a', '222'])
+    sys.argv.extend(['--coqpit.mylist_with_default.1.val_a', '111'])
     main()
 ```

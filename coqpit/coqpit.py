@@ -204,9 +204,8 @@ def _get_help(field):
 
 
 def _init_argparse(parser, field_name, field_type, field_value, field_help, arg_prefix='', help_prefix=''):
-    if field_value is None:
-        # we only edit defined fields by argparser arguments. If the value is None it is not defined and
-        # can be ignored
+    if field_value is None and not is_common_type(field_type):
+        # if the field type not int, flot or str, do not add it to the arguments
         return parser
     arg_prefix = field_name if arg_prefix=='' else f'{arg_prefix}.{field_name}'
     help_prefix = field_help if help_prefix=='' else f'{help_prefix} - {field_help}'
