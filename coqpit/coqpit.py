@@ -5,7 +5,7 @@ from decimal import Decimal
 from abc import abstractmethod
 from dataclasses import asdict, dataclass, fields, is_dataclass, MISSING, Field
 from pprint import pprint
-from typing import Union, Generic, _GenericAlias, TypeVar, get_type_hints
+from typing import Any, Union, Generic, _GenericAlias, TypeVar, get_type_hints
 
 
 T = TypeVar("T")
@@ -33,7 +33,8 @@ def _serialize(x):
 
 def _deserialize(x, field_type):
     if isinstance(field_type, dict):
-        return {k: _deserialize(v) for k, v in x.items()}
+        # return {k: _deserialize(v) for k, v in x.items()}
+        raise NotImplementedError
     elif is_list(field_type):
         if len(field_type.__args__) > 1:
             raise ValueError(" [!] Coqpit does not support multi-type hinted 'List'")
@@ -110,9 +111,7 @@ class Serializable:
 
     def __post_init__(self):
         self._validate_contracts()
-
         for key, value in self.__dict__.items():
-
             if value is no_default:
                 raise TypeError(f"__init__ missing 1 required argument: '{key}'")
 
@@ -170,9 +169,12 @@ class Serializable:
             raise ValueError("could not be deserialized with same value")
 
     def deserialize(self, data: dict) -> "Serializable":
+        if not isinstance(data, dict):
+            raise ValueError()
         data = data.copy()
         init_kwargs = {}
         for field in fields(self):
+            # if field.name == 'dataset_config':
             if field.name not in data:
                 init_kwargs[field.name] = vars(self)[field.name]
                 continue
@@ -202,9 +204,12 @@ def _get_help(field):
 
 
 def _init_argparse(parser, field_name, field_type, field_value, field_help, arg_prefix='', help_prefix=''):
-    # print(field_name)
-    arg_prefix = f'{arg_prefix}{field_name}'
-    help_prefix = f'{help_prefix}{field_help}'
+    if field_value is None:
+        # we only edit defined fields by argparser arguments. If the value is None it is not defined and
+        # can be ignored
+        return parser
+    arg_prefix = field_name if arg_prefix=='' else f'{arg_prefix}.{field_name}'
+    help_prefix = field_help if help_prefix=='' else f'{help_prefix} - {field_help}'
     if isinstance(field_type, dict):
         # TODO: currently I don't need it
         NotImplemented
@@ -241,7 +246,7 @@ def _init_argparse(parser, field_name, field_type, field_value, field_help, arg_
     elif issubclass(field_type, Serializable):
         return field_value.init_argparse(parser, arg_prefix=arg_prefix, help_prefix=help_prefix)
     elif is_common_type(field_type):
-        parser.add_argument(f'--{arg_prefix}', default=field_value, type=field_type, help=f'{help_prefix}')
+        parser.add_argument(f'--coqpit.{arg_prefix}', default=field_value, type=field_type, help=f'Coqpit Field: {help_prefix}')
     else:
         raise NotImplementedError(f" [!] '{field_type}' is not supported by arg_parser. Please file a bug report.")
     return parser
@@ -253,12 +258,26 @@ class Coqpit(Serializable):
     It enables serializing/deserializing a dataclass to/from a json file, plus some semi-dynamic type and value check.
     Note that it does not support all datatypes and likely to fail in some special cases.
     '''
+    _initialized = False
+
+    def _is_initialized(self):
+        """Check if Coqpit is initialized. Useful to prevent running some aux functions
+        at the initialization when no attribute has been defined."""
+        return '_initialized' in vars(self) and self._initialized
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if self._is_initialized() and issubclass(type(value), Coqpit):
+            self.__fields__[name].type = type(value)
+        return super().__setattr__(name, value)
 
     def __set_fields(self):
         '''Create a list of fields defined at the object initialization'''
-        self.__fields__ = asdict(self).keys()
+        self.__fields__ = {}
+        for field in fields(self):
+            self.__fields__[field.name] = field
 
     def __post_init__(self):
+        self._initialized = True
         self.__set_fields()
         try:
             self.check_values()
@@ -328,7 +347,7 @@ class Coqpit(Serializable):
         self = self.deserialize(dump_dict)
         self.check_values()
 
-    def from_argparse(self, args:argparse.Namespace) -> None:
+    def parse_args(self, args:argparse.Namespace) -> None:
         """Update config values from argparse arguments with some meta-programming ✨.
 
         Args:
@@ -337,32 +356,35 @@ class Coqpit(Serializable):
         Returns:
             Coqpit: new config object with updated values.
         """
-        args_dict = vars(args)
+        if isinstance(args, argparse.Namespace):
+            args_dict = vars(args)
+        elif isinstance(args, list):
+            # overriding values from .parse_known_args()
+            args_dict = dict([*zip(args[::2], args[1::2])])
         for k, v in args_dict.items():
             v_type = type(v)
-            # if k.startswith('coqpit') and '.' in k:
-            # _, k = k.split('.', 1)
-            names = k.split('.')
-            cmd = "self"
-            for name in names:
-                if str.isnumeric(name):
-                    cmd += f"[{name}]"
+            if k.replace('--', '').startswith('coqpit') and '.' in k:
+                _, k = k.split('.', 1)
+                names = k.split('.')
+                cmd = "self"
+                for name in names:
+                    if str.isnumeric(name):
+                        cmd += f"[{name}]"
+                    else:
+                        cmd += f".{name}"
+                try:
+                    exec(cmd)
+                except AttributeError:
+                    raise AttributeError(f" [!] '{k}' not exist to override from argparse.")
+
+                if v is None:
+                    cmd += f"= None"
+                elif isinstance(v, str):
+                    cmd += f"= v_type('{v}')"
                 else:
-                    cmd += f".{name}"
-            try:
+                    cmd += f"= v_type({v})"
+
                 exec(cmd)
-            except AttributeError:
-                raise AttributeError(f" [!] '{k}' not exist to override from argparse.")
-
-            if v is None:
-                cmd += f"= None"
-            elif isinstance(v, str):
-                cmd += f"= v_type('{v}')"
-            else:
-                cmd += f"= v_type({v})"
-
-            # print(cmd)
-            exec(cmd)
         self.check_values()
 
     def init_argparse(self,
@@ -424,6 +446,11 @@ def check_argument(name,
             check_argument('num_mels', c, restricted=True, min_val=10, max_val=2056)
             check_argument('fft_size', c, restricted=True, min_val=128, max_val=4058)
     """
+    # check if None allowed
+    if allow_none and c[name] is None:
+        return
+    if not allow_none:
+        assert c[name] is not None, f" [!] None value is not allowed for {name}."
     # check if restricted and it it is check if it exists
     if isinstance(restricted, bool) and restricted:
         assert name in c.keys(), f' [!] {name} not defined in config.json'
@@ -438,11 +465,6 @@ def check_argument(name,
     # skip the rest if the alternative field is defined.
     if alternative in c.keys() and c[alternative] is not None:
         return
-    # check if None allowed
-    if allow_none and c[name] is None:
-        return
-    if not allow_none:
-        assert c[name] is not None, f" [!] None value is not allowed for {name}."
     # check value constraints
     if name in c.keys():
         if max_val is not None:
