@@ -9,6 +9,7 @@ from coqpit.coqpit import Coqpit, check_argument
 class SimpleConfig(Coqpit):
     val_a: int = 10
     val_b: int = None
+    val_d: float = 10.21
     val_c: str = "Coqpit is great!"
 
     def check_values(self,):
