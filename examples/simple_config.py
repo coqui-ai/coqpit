@@ -23,7 +23,8 @@ class SimpleConfig(Coqpit):
 if __name__ == '__main__':
     file_path = os.path.dirname(os.path.abspath(__file__))
     config = SimpleConfig()
-    print(config.to_json())
-    config.save_json(os.path.join(file_path, 'example_config.json'))
-    config.load_json(os.path.join(file_path, 'example_config.json'))
-    print(config.pprint())
+    # print(config.serialize())
+    # print(config.to_json())
+    # config.save_json(os.path.join(file_path, 'example_config.json'))
+    # config.load_json(os.path.join(file_path, 'example_config.json'))
+    # print(config.pprint())
