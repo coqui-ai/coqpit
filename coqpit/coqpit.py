@@ -1,12 +1,9 @@
 import argparse
 import json
 import os
-from decimal import Decimal
-from abc import abstractmethod
-from dataclasses import asdict, dataclass, fields, is_dataclass, MISSING, Field
+from dataclasses import MISSING, Field, asdict, dataclass, fields, is_dataclass
 from pprint import pprint
-from typing import Any, List, Union, Generic, _GenericAlias, TypeVar, get_type_hints
-
+from typing import Any, Generic, List, TypeVar, Union, _GenericAlias, get_type_hints
 
 T = TypeVar("T")
 
@@ -51,7 +48,7 @@ def _deserialize(x, field_type):
     """
     if isinstance(field_type, dict):
         # return {k: _deserialize(v) for k, v in x.items()}
-        NotImplemented
+        raise NotImplementedError(" [!] Coqpit deos not support `dict` value type.")
     elif is_list(field_type):
         if len(field_type.__args__) > 1:
             raise ValueError(" [!] Coqpit does not support multi-type hinted 'List'")
@@ -379,7 +376,7 @@ class Coqpit(Serializable):
 
     def __set_fields(self):
         """Create a list of fields defined at the object initialization"""
-        self.__fields__ = {}
+        self.__fields__ = {}  # pylint: disable=attribute-defined-outside-init
         for field in fields(self):
             self.__fields__[field.name] = field
 
@@ -471,7 +468,8 @@ class Coqpit(Serializable):
         with open(file_name, "r", encoding="utf8") as f:
             input_str = f.read()
             dump_dict = json.loads(input_str)
-        self = self.deserialize(dump_dict)
+        # TODO: this looks stupid 💆
+        self = self.deserialize(dump_dict)  # pylint: disable=self-cls-assignment
         self.check_values()
 
     def parse_args(self, args: argparse.Namespace) -> None:
@@ -489,7 +487,6 @@ class Coqpit(Serializable):
             # overriding values from .parse_known_args()
             args_dict = dict([*zip(args[::2], args[1::2])])
         for k, v in args_dict.items():
-            v_type = type(v)
             if k.replace("--", "").startswith("coqpit") and "." in k:
                 _, k = k.split(".", 1)
                 names = k.split(".")
@@ -500,20 +497,20 @@ class Coqpit(Serializable):
                     else:
                         cmd += f".{name}"
                 try:
-                    exec(cmd)
-                except AttributeError:
-                    raise AttributeError(
+                    exec(cmd)  # pylint: disable=exec-used
+                except AttributeError as e:
+                    raise Exception(
                         f" [!] '{k}' not exist to override from argparse."
-                    )
+                    ) from e
 
                 if v is None:
-                    cmd += f"= None"
+                    cmd += "= None"
                 elif isinstance(v, str):
                     cmd += f"= v_type('{v}')"
                 else:
                     cmd += f"= v_type({v})"
 
-                exec(cmd)
+                exec(cmd)  # pylint: disable=exec-used
         self.check_values()
 
     def init_argparse(
@@ -593,7 +590,7 @@ def check_argument(
     # check prerequest fields are defined
     if isinstance(prerequest, list):
         assert any(
-            [f not in c.keys() for f in prerequest]
+            f not in c.keys() for f in prerequest
         ), f" [!] prequested fields {prerequest} for {name} are not defined."
     else:
         assert (

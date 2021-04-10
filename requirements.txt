@@ -1,0 +1,3 @@
+# only requirements are for code formatting.
+pylint
+black

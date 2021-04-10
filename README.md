@@ -2,30 +2,45 @@
 Simple, light-weight config handling through python data classes with to/from JSON serialization/deserialization.
 
 Work in progress... 🌡️
-
-## Why do I need this?
-What I need from a ML configuration library are
-
-## Why do I need this?
+## ❔ Why I need this
 What I need from a ML configuration library are...
 
 1. Fixing a general config schema in Python to guide users about expected values.
+
     Python is good but not universal. Sometimes you train a ML model and use it on a different platform. So, you
     need your model configuration file importable by other programming languages.
+
 2. Simple dynamic value and type checking with default values.
+
     If you are a beginner in a ML project, it is hard to guess the right values for your ML experiment. Therefore it is important
     to have some default values and know what range and type of input are expected for each field.
+
 4. Ability to decompose large configs.
+
     As you define more fields for the training dataset, data preprocessing, model parameters, etc., your config file tends
     to get quite large but in most cases, they can be decomposed, enabling flexibility and readability.
-Inheritance and nested configurations.
+
+5. Inheritance and nested configurations.
+
     Simply helps to keep configurations consistent and easier to maintain.
+
 6. Ability to override values from the command line when necessary.
+
     For instance, you might need to define a path for your dataset, and this changes for almost every run. Then the user
-    should be able to override this value easily over the command line arguments.
-7. No dependencies
-    You don't want to install a ton of libraries for simple configuration management. If you install one, then it
-    is better to be just pure native python and as simple as possible.
+    should be able to override this value easily over the command line.
+
+    It also allows easy hyper-parameter search without changing your original code. Basically, you can run different models
+    with different parameters just using command line arguments.
+
+7. Defining dynamic or conditional config values.
+
+    Sometimes you need to define certain values depending on the other values. Using python helps to define the underlying
+    logic for such config values.
+
+8. No dependencies
+
+    You don't want to install a ton of libraries for just configuration management. If you install one, then it
+    is better to be just native python.
 ## 🔍 Examples
 
 ### 👉 Serialization
