@@ -1,7 +1,7 @@
 # 👩‍✈️ Coqpit
 Simple, light-weight and no dependency config handling through python data classes with to/from JSON serialization/deserialization.
 
-Currently it is being used by [:frog:TTS](https://github.com/coqui-ai/TTS).
+Currently it is being used by [🐸TTS](https://github.com/coqui-ai/TTS).
 ## ❔ Why I need this
 What I need from a ML configuration library...
 
