@@ -1,11 +1,13 @@
 import argparse
 import json
 import os
-from dataclasses import MISSING, Field, asdict, dataclass, fields, is_dataclass
+from dataclasses import MISSING as _MISSING
+from dataclasses import Field, asdict, dataclass, fields, is_dataclass
 from pprint import pprint
 from typing import Any, Generic, List, TypeVar, Union, _GenericAlias, get_type_hints
 
 T = TypeVar("T")
+MISSING: Any = "???"
 
 
 class _NoDefault(Generic[T]):
@@ -46,14 +48,22 @@ def _deserialize(x, field_type):
     Returns:
         object: deserialized object
     """
-    if isinstance(field_type, dict):
-        # return {k: _deserialize(v) for k, v in x.items()}
-        raise NotImplementedError(" [!] Coqpit deos not support `dict` value type.")
+    if is_dict(field_type):
+        out_dict = {}
+        for k, v in x.items():
+            if v is None:  # if {'key':None}
+                out_dict[k] = None
+            else:
+                out_dict[k] = _deserialize(v, type(v))
+        return out_dict
     elif is_list(field_type):
-        if len(field_type.__args__) > 1:
-            raise ValueError(" [!] Coqpit does not support multi-type hinted 'List'")
-        field_arg = field_type.__args__[0]
-        return [_deserialize(xi, field_arg) for xi in x]
+        if hasattr(field_type, "__args__"):
+            if len(field_type.__args__) > 1:
+                raise ValueError(" [!] Coqpit does not support multi-type hinted 'List'")
+            field_arg = field_type.__args__[0]
+            return [_deserialize(xi, field_arg) for xi in x]
+        else:
+            return x
     elif is_union(field_type):
         for arg in field_type.__args__:
             # stop after first matching type in Union
@@ -68,12 +78,10 @@ def _deserialize(x, field_type):
     elif is_common_type(field_type):
         return x
     else:
-        raise ValueError(
-            f" [!] '{type(x)}' value type does not match '{field_type}' field type."
-        )
+        raise ValueError(f" [!] '{type(x)}' value type does not match '{field_type}' field type.")
 
 
-def is_common_type(type) -> bool:
+def is_common_type(type: Any) -> bool:
     """Check if the input type is one of the common types (int, float, str).
 
     Args:
@@ -85,7 +93,7 @@ def is_common_type(type) -> bool:
     return isinstance(type(), (int, float, str))
 
 
-def is_list(type) -> bool:
+def is_list(type: Any) -> bool:
     """Check if the input type is `list`
 
     Args:
@@ -100,7 +108,22 @@ def is_list(type) -> bool:
         return False
 
 
-def is_union(type) -> bool:
+def is_dict(type: Any) -> bool:
+    """Check if the input type is `list`
+
+    Args:
+        type (typing.Any): input type.
+
+    Returns:
+        bool: True if input type is `list`
+    """
+    try:
+        return type is dict or type.__origin__ is dict
+    except AttributeError:
+        return False
+
+
+def is_union(type: Any) -> bool:
     """Check if the input type is `Union`.
 
     Args:
@@ -144,7 +167,7 @@ def _default_value(x: Field):
     """
     if x.default != MISSING:
         return x.default
-    elif x.default_factory != MISSING:
+    elif x.default_factory != _MISSING:
         return x.default_factory()
     else:
         return x.default
@@ -159,9 +182,7 @@ def _is_optional_field(field) -> bool:
     Returns:
         bool: True if the input field is optional.
     """
-    return isinstance(field.type, _GenericAlias) and type(None) in getattr(
-        field.type, "__args__"
-    )
+    return isinstance(field.type, _GenericAlias) and type(None) in getattr(field.type, "__args__")
 
 
 def my_get_type_hints(
@@ -183,8 +204,8 @@ def my_get_type_hints(
 
 @dataclass
 class Serializable:
-    """Gives serialization ability to any inheriting dataclass.
-    """
+    """Gives serialization ability to any inheriting dataclass."""
+
     def __post_init__(self):
         self._validate_contracts()
         for key, value in self.__dict__.items():
@@ -206,9 +227,7 @@ class Serializable:
 
             if contract is not None:
                 if value is not None and not contract(value):
-                    raise ValueError(
-                        f"break the contract for {field.name}, {self.__class__.__name__}"
-                    )
+                    raise ValueError(f"break the contract for {field.name}, {self.__class__.__name__}")
 
     def validate(self):
         """validate if object can serialize / deserialize correctly."""
@@ -259,11 +278,7 @@ class Serializable:
                 init_kwargs[field.name] = value
                 continue
             if value == MISSING:
-                raise ValueError(
-                    "deserialized with unknown value for {} in {}".format(
-                        field.name, self.__name__
-                    )
-                )
+                raise ValueError("deserialized with unknown value for {} in {}".format(field.name, self.__name__))
             value = _deserialize(value, field.type)
             init_kwargs[field.name] = value
         for k, v in init_kwargs.items():
@@ -334,9 +349,7 @@ def _init_argparse(
         # TODO: currently I don't know how to handle Union type on argparse
         NotImplemented
     elif issubclass(field_type, Serializable):
-        return field_value.init_argparse(
-            parser, arg_prefix=arg_prefix, help_prefix=help_prefix
-        )
+        return field_value.init_argparse(parser, arg_prefix=arg_prefix, help_prefix=help_prefix)
     elif is_common_type(field_type):
         parser.add_argument(
             f"--coqpit.{arg_prefix}",
@@ -345,15 +358,14 @@ def _init_argparse(
             help=f"Coqpit Field: {help_prefix}",
         )
     else:
-        raise NotImplementedError(
-            f" [!] '{field_type}' is not supported by arg_parser. Please file a bug report."
-        )
+        raise NotImplementedError(f" [!] '{field_type}' is not supported by arg_parser. Please file a bug report.")
     return parser
 
 
 # ---------------------------------------------------------------------------- #
 #                               Main Coqpit Class                              #
 # ---------------------------------------------------------------------------- #
+
 
 @dataclass
 class Coqpit(Serializable):
@@ -392,6 +404,13 @@ class Coqpit(Serializable):
         """Access class attributes with ``[arg]``."""
         return asdict(self)[arg]
 
+    def __getattribute__(self, arg: str):
+        """Check if the mandatory field is defined when accessing it."""
+        value = super(Coqpit, self).__getattribute__(arg)
+        if isinstance(value, str) and value == "???":
+            raise AttributeError(f" [!] MISSING field {arg} must be defined.")
+        return value
+
     def merge(self, coqpits: Union["Coqpit", List["Coqpit"]]):
         """Merge a coqpit instance or a list of coqpit instances to self.
         Note that it does not pass the fields and overrides attributes with
@@ -419,17 +438,21 @@ class Coqpit(Serializable):
     def has(self, arg: str) -> bool:
         return arg in vars(self)
 
-    def update(self, new: dict) -> None:
+    def update(self, new: dict, allow_new=False) -> None:
         """Update Coqpit fields by the input ```dict```.
 
         Args:
             new (dict): dictionary with new values.
+            allow_new (bool, optional): allow new fields to add. Defaults to False.
         """
         for key, value in new.items():
-            if hasattr(self, key):
+            if allow_new:
                 setattr(self, key, value)
             else:
-                raise KeyError(f" [!] No key - {key}")
+                if hasattr(self, key):
+                    setattr(self, key, value)
+                else:
+                    raise KeyError(f" [!] No key - {key}")
 
     def pprint(self) -> None:
         """Print Coqpit fields in a format."""
@@ -444,7 +467,7 @@ class Coqpit(Serializable):
 
     def to_json(self) -> str:
         """Returns a JSON string representation."""
-        return json.dumps(asdict(self))
+        return json.dumps(asdict(self), indent=4)
 
     def save_json(self, file_name: str) -> None:
         """Save Coqpit to a json file.
@@ -453,7 +476,7 @@ class Coqpit(Serializable):
             file_name (str): path to the output json file.
         """
         with open(file_name, "w", encoding="utf8") as f:
-            json.dump(asdict(self), f)
+            json.dump(asdict(self), f, indent=4)
 
     def load_json(self, file_name: str) -> None:
         """Load a json file and update matching config fields with type checking.
@@ -498,24 +521,20 @@ class Coqpit(Serializable):
                         cmd += f".{name}"
                 try:
                     exec(cmd)  # pylint: disable=exec-used
-                except AttributeError as e:
-                    raise Exception(
-                        f" [!] '{k}' not exist to override from argparse."
-                    ) from e
+                except (TypeError, AttributeError) as e:
+                    raise Exception(f" [!] '{k}' not exist to override from argparse.") from e
 
                 if v is None:
                     cmd += "= None"
                 elif isinstance(v, str):
-                    cmd += f"= v_type('{v}')"
+                    cmd += f"= '{v}'"
                 else:
-                    cmd += f"= v_type({v})"
+                    cmd += f"= {v}"
 
                 exec(cmd)  # pylint: disable=exec-used
         self.check_values()
 
-    def init_argparse(
-        self, parser: argparse.ArgumentParser, arg_prefix="", help_prefix=""
-    ) -> argparse.ArgumentParser:
+    def init_argparse(self, parser: argparse.ArgumentParser, arg_prefix="", help_prefix="") -> argparse.ArgumentParser:
         """Pass Coqpit fields as argparse arguments. This allows to edit values through command-line.
 
         Args:
@@ -607,8 +626,6 @@ def check_argument(
         if max_val is not None:
             assert c[name] <= max_val, f" [!] {name} is larger than max value {max_val}"
         if min_val is not None:
-            assert (
-                c[name] >= min_val
-            ), f" [!] {name} is smaller than min value {min_val}"
+            assert c[name] >= min_val, f" [!] {name} is smaller than min value {min_val}"
         if enum_list is not None:
             assert c[name].lower() in enum_list, f" [!] {name} is not a valid value"
