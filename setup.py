@@ -45,10 +45,9 @@ setup(
     include_package_data=True,
     packages=find_packages(include=['coqui*']),
     project_urls={
-        'Documentation': 'https://github.com/coqui-ai/TTS/wiki',
-        'Tracker': 'https://github.com/coqui-ai/TTS/issues',
-        'Repository': 'https://github.com/coqui-ai/TTS',
-        'Discussions': 'https://github.com/coqui-ai/TTS/discussions',
+        'Tracker': 'https://github.com/coqui-ai/coqpit/issues',
+        'Repository': 'https://github.com/coqui-ai/coqpit',
+        'Discussions': 'https://github.com/coqui-ai/coqpit/discussions',
     },
     cmdclass={
         'build_py': build_py,
@@ -59,10 +58,7 @@ setup(
     classifiers=[
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
         "Intended Audience :: Developers",
         "Operating System :: POSIX :: Linux",
         "Operating System :: MacOS",
