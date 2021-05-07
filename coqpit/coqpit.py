@@ -56,15 +56,14 @@ def _deserialize(x, field_type):
             else:
                 out_dict[k] = _deserialize(v, type(v))
         return out_dict
-    elif is_list(field_type):
+    if is_list(field_type):
         if hasattr(field_type, "__args__"):
             if len(field_type.__args__) > 1:
                 raise ValueError(" [!] Coqpit does not support multi-type hinted 'List'")
             field_arg = field_type.__args__[0]
             return [_deserialize(xi, field_arg) for xi in x]
-        else:
-            return x
-    elif is_union(field_type):
+        return x
+    if is_union(field_type):
         for arg in field_type.__args__:
             # stop after first matching type in Union
             try:
@@ -73,67 +72,66 @@ def _deserialize(x, field_type):
             except ValueError:
                 pass
         return x
-    elif issubclass(field_type, Serializable):
+    if issubclass(field_type, Serializable):
         return field_type().deserialize(x)
-    elif is_common_type(field_type):
+    if is_common_type(field_type):
         return x
-    else:
-        raise ValueError(f" [!] '{type(x)}' value type does not match '{field_type}' field type.")
+    raise ValueError(f" [!] '{type(x)}' value type does not match '{field_type}' field type.")
 
 
-def is_common_type(type: Any) -> bool:
+def is_common_type(arg_type: Any) -> bool:
     """Check if the input type is one of the common types (int, float, str).
 
     Args:
-        type (typing.Any): input type to check.
+        arg_type (typing.Any): input type to check.
 
     Returns:
         bool: True if input type is one of `int, float, str`.
     """
-    return isinstance(type(), (int, float, str))
+    return isinstance(arg_type(), (int, float, str))
 
 
-def is_list(type: Any) -> bool:
+def is_list(arg_type: Any) -> bool:
     """Check if the input type is `list`
 
     Args:
-        type (typing.Any): input type.
+        arg_type (typing.Any): input type.
 
     Returns:
         bool: True if input type is `list`
     """
     try:
-        return type is list or type.__origin__ is list
+        return arg_type is list or arg_type.__origin__ is list
     except AttributeError:
         return False
 
 
-def is_dict(type: Any) -> bool:
+def is_dict(arg_type: Any) -> bool:
     """Check if the input type is `list`
 
     Args:
-        type (typing.Any): input type.
+        arg_type (typing.Any): input type.
 
     Returns:
         bool: True if input type is `list`
     """
     try:
-        return type is dict or type.__origin__ is dict
+        return arg_type is dict or arg_type.__origin__ is dict
     except AttributeError:
         return False
 
 
-def is_union(type: Any) -> bool:
+def is_union(arg_type: Any) -> bool:
     """Check if the input type is `Union`.
 
     Args:
-        type (typing.Any): input type.
+        arg_type (typing.Any): input type.
 
     Returns:
         bool: True if input type is `Union`
     """
     try:
-        return safe_issubclass(type.__origin__, Union)
+        return safe_issubclass(arg_type.__origin__, Union)
     except AttributeError:
         return False
 
@@ -150,7 +148,7 @@ def safe_issubclass(cls, classinfo) -> bool:
     """
     try:
         r = issubclass(cls, classinfo)
-    except Exception:
+    except Exception:  # pylint: disable=broad-except
         return cls is classinfo
     else:
         return r
@@ -167,10 +165,9 @@ def _default_value(x: Field):
     """
     if x.default != MISSING:
         return x.default
-    elif x.default_factory != _MISSING:
+    if x.default_factory != _MISSING:
         return x.default_factory()
-    else:
-        return x.default
+    return x.default
 
 
 def _is_optional_field(field) -> bool:
@@ -232,15 +229,17 @@ class Serializable:
     def validate(self):
         """validate if object can serialize / deserialize correctly."""
         self._validate_contracts()
-        if self != self.__class__.deserialize(json.loads(json.dumps(self.serialize()))):
+        if self != self.__class__.deserialize(  # pylint: disable=no-value-for-parameter
+            json.loads(json.dumps(self.serialize()))
+        ):
             raise ValueError("could not be deserialized with same value")
 
     def to_dict(self) -> dict:
         """Transform serializable object to dict."""
-        fields = fields(self)
+        cls_fields = fields(self)
         o = {}
-        for field in fields:
-            o[field.name] = getattr(self, field.name)
+        for cls_field in cls_fields:
+            o[cls_field.name] = getattr(self, cls_field.name)
         return o
 
     def serialize(self) -> dict:
@@ -313,15 +312,15 @@ def _init_argparse(
         return parser
     arg_prefix = field_name if arg_prefix == "" else f"{arg_prefix}.{field_name}"
     help_prefix = field_help if help_prefix == "" else f"{help_prefix} - {field_help}"
-    if isinstance(field_type, dict):
+    if isinstance(field_type, dict):  # pylint: disable=no-else-raise
         # TODO: currently I don't need it
-        NotImplemented
+        raise NotImplementedError(" [!] Parsing `dict` field from argparse is not yet implemented. Please create an issue.")
     elif is_list(field_type):
         # TODO: We need a more clear help msg for lists.
         if len(field_type.__args__) > 1:
             raise ValueError(" [!] Coqpit does not support multi-type hinted 'List'")
         list_field_type = field_type.__args__[0]
-        if field_value is None:
+        if field_value is None:  # pylint: disable=no-else-raise
             # if the list is None, assume insertion of a new value/object to the list[0]
             # parser = _init_argparse(parser,
             #                         '0.',
@@ -331,7 +330,7 @@ def _init_argparse(
             #                         help_prefix=f'insert a new {list_field_type} to index 0 - {help_prefix} - ',
             #                         arg_prefix=f'{arg_prefix}.')
             # TODO: it complicates parsing argparse
-            NotImplemented
+            raise NotImplementedError(" [!] Please create an issue.")
         else:
             # if a list is defined, just enable editing the values from argparse
             # TODO: allow inserting a new value/obj to the end of the list.
@@ -347,7 +346,7 @@ def _init_argparse(
                 )
     elif is_union(field_type):
         # TODO: currently I don't know how to handle Union type on argparse
-        NotImplemented
+        raise NotImplementedError(" [!] Parsing `Union` field from argparse is not yet implemented. Please create an issue.")
     elif issubclass(field_type, Serializable):
         return field_value.init_argparse(parser, arg_prefix=arg_prefix, help_prefix=help_prefix)
     elif is_common_type(field_type):
@@ -406,7 +405,7 @@ class Coqpit(Serializable):
 
     def __getattribute__(self, arg: str):
         """Check if the mandatory field is defined when accessing it."""
-        value = super(Coqpit, self).__getattribute__(arg)
+        value = super().__getattribute__(arg)
         if isinstance(value, str) and value == "???":
             raise AttributeError(f" [!] MISSING field {arg} must be defined.")
         return value
@@ -414,7 +413,7 @@ class Coqpit(Serializable):
     def __contains__(self, arg: str):
         return arg in self.to_dict()
 
-    def get(self, arg: str, default: Any=None):
+    def get(self, arg: str, default: Any = None):
         if self.has(arg):
             return asdict(self)[arg]
         return default
@@ -471,7 +470,7 @@ class Coqpit(Serializable):
         return self.serialize()
 
     def from_dict(self, data: dict) -> None:
-        self = self.deserialize(data)
+        self = self.deserialize(data)  # pylint: disable=self-cls-assignment
 
     def to_json(self) -> str:
         """Returns a JSON string representation."""
