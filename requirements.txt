@@ -1,3 +1,1 @@
-# only requirements are for code formatting.
-pylint
-black
+dataclasses;python_version=='3.6'
