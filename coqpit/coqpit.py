@@ -411,6 +411,14 @@ class Coqpit(Serializable):
             raise AttributeError(f" [!] MISSING field {arg} must be defined.")
         return value
 
+    def __contains__(self, arg: str):
+        return arg in self.to_dict()
+
+    def get(self, arg: str, default: Any=None):
+        if self.has(arg):
+            return asdict(self)[arg]
+        return default
+
     def merge(self, coqpits: Union["Coqpit", List["Coqpit"]]):
         """Merge a coqpit instance or a list of coqpit instances to self.
         Note that it does not pass the fields and overrides attributes with
