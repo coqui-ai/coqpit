@@ -35,8 +35,6 @@ class SimpleConfig(Coqpit):
 
 
 def main():
-    file_path = os.path.dirname(os.path.abspath(__file__))
-
     # initial config
     config = SimpleConfig()
     print(config.pprint())

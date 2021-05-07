@@ -7,9 +7,8 @@ help:
 target_dirs := tests coqpit examples
 
 
-test:	## run tests.
-	nosetests -x --with-cov -cov  --cover-erase --cover-package TTS tests --nologcapture
-	./run_bash_tests.sh
+# test:	## run tests.
+# nosetests -x --with-cov -cov  --cover-erase --cover-package coqpit tests --nologcapture
 
 style:	## update code style.
 	black ${target_dirs}
@@ -18,5 +17,5 @@ style:	## update code style.
 lint:	## run pylint linter.
 	pylint ${target_dirs}
 
-install:	## install 🐸 Coqpit for development.
+install:	## install 👩‍✈️ Coqpit for development.
 	pip install -e .

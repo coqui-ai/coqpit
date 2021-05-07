@@ -1,7 +1,7 @@
 import os
 from dataclasses import dataclass
 
-from coqpit.coqpit import Coqpit, check_argument
+from coqpit.coqpit import Coqpit
 
 
 @dataclass
