@@ -1,0 +1,11 @@
+{
+    "val_a": 10,
+    "val_b": null,
+    "val_d": 10.21,
+    "val_c": "Coqpit is great!",
+    "val_k": 1000,
+    "val_dict": {
+        "val_aa": 10,
+        "val_ss": "This is in a dict."
+    }
+}
