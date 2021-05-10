@@ -5,7 +5,7 @@ from collections.abc import MutableMapping
 from dataclasses import MISSING as _MISSING
 from dataclasses import Field, asdict, dataclass, fields, is_dataclass
 from pprint import pprint
-from typing import Any, Generic, List, TypeVar, Union, _GenericAlias, get_type_hints
+from typing import Any, Generic, List, TypeVar, Union, get_type_hints
 
 T = TypeVar("T")
 MISSING: Any = "???"
@@ -89,6 +89,8 @@ def is_common_type(arg_type: Any) -> bool:
     Returns:
         bool: True if input type is one of `int, float, str`.
     """
+    if is_list(arg_type):
+        return False
     return isinstance(arg_type(), (int, float, str))
 
 
@@ -102,7 +104,7 @@ def is_list(arg_type: Any) -> bool:
         bool: True if input type is `list`
     """
     try:
-        return arg_type is list or arg_type.__origin__ is list
+        return arg_type is list or arg_type.__origin__ is list or arg_type.__origin__ is List
     except AttributeError:
         return False
 
@@ -180,7 +182,8 @@ def _is_optional_field(field) -> bool:
     Returns:
         bool: True if the input field is optional.
     """
-    return isinstance(field.type, _GenericAlias) and type(None) in getattr(field.type, "__args__")
+    # return isinstance(field.type, _GenericAlias) and type(None) in getattr(field.type, "__args__")
+    return type(None) in getattr(field.type, "__args__")
 
 
 def my_get_type_hints(
