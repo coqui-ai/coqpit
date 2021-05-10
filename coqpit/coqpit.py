@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+from collections.abc import MutableMapping
 from dataclasses import MISSING as _MISSING
 from dataclasses import Field, asdict, dataclass, fields, is_dataclass
 from pprint import pprint
@@ -367,10 +368,11 @@ def _init_argparse(
 
 
 @dataclass
-class Coqpit(Serializable):
-    """Coqpit base class to be inherited by any future Coqpit dataclasses.
-    It enables serializing/deserializing a dataclass to/from a json file, plus some semi-dynamic type and value check.
-    Note that it does not support all datatypes and likely to fail in some special cases.
+class Coqpit(Serializable, MutableMapping):
+    """Coqpit base class to be inherited by any Coqpit dataclasses.
+    It overrides Python `dict` interface and provides `dict` compatible API.
+    It also enables serializing/deserializing a dataclass to/from a json file, plus some semi-dynamic type and value check.
+    Note that it does not support all datatypes and likely to fail in some cases.
     """
 
     _initialized = False
@@ -399,9 +401,28 @@ class Coqpit(Serializable):
         except AttributeError:
             pass
 
+    ## `dict` API functions
+
+    def __iter__(self):
+        return iter(asdict(self))
+
+    def __len__(self):
+        return len(self.__fields__)
+
+    def __setitem__(self, arg: str, value:Any):
+        setattr(self, arg, value)
+
     def __getitem__(self, arg: str):
         """Access class attributes with ``[arg]``."""
-        return asdict(self)[arg]
+        return self.__dict__[arg]
+
+    def __delitem__(self, arg: str):
+        delattr(self, arg)
+
+    def _keytransform(self, key):
+        return key
+
+    ## end `dict` API functions
 
     def __getattribute__(self, arg: str):
         """Check if the mandatory field is defined when accessing it."""
@@ -417,6 +438,9 @@ class Coqpit(Serializable):
         if self.has(arg):
             return asdict(self)[arg]
         return default
+
+    def items(self):
+        return asdict(self).items()
 
     def merge(self, coqpits: Union["Coqpit", List["Coqpit"]]):
         """Merge a coqpit instance or a list of coqpit instances to self.
