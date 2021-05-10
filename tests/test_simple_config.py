@@ -10,8 +10,10 @@ class SimpleConfig(Coqpit):
     val_b: int = None
     val_d: float = 10.21
     val_c: str = "Coqpit is great!"
-    val_k: int = MISSING  # raise an error when accessing the value if it is not changed. It is a way to define
-    # mandatory fields
+    # mandatory field
+    # raise an error when accessing the value if it is not changed. It is a way to define
+    val_k: int = MISSING
+    # optional field
     val_dict: dict = field(default_factory=lambda: {"val_aa": 10, "val_ss": "This is in a dict."})
 
     def check_values(
@@ -30,7 +32,7 @@ def test_simple_config():
 
     # try MISSING class argument
     try:
-        k = config.val_k
+        config.val_k
     except AttributeError:
         print(" val_k needs a different value before accessing it.")
     config.val_k = 1000

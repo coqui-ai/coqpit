@@ -426,12 +426,12 @@ class Coqpit(Serializable, MutableMapping):
     def __delitem__(self, arg: str):
         delattr(self, arg)
 
-    def _keytransform(self, key):
+    def _keytransform(self, key):  # pylint: disable=no-self-use
         return key
 
     ## end `dict` API functions
 
-    def __getattribute__(self, arg: str):
+    def __getattribute__(self, arg: str):  # pylint: disable=no-self-use
         """Check if the mandatory field is defined when accessing it."""
         value = super().__getattribute__(arg)
         if isinstance(value, str) and value == "???":

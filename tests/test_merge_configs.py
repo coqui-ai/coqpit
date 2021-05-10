@@ -1,4 +1,3 @@
-import os
 from dataclasses import dataclass
 
 from coqpit.coqpit import Coqpit
