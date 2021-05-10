@@ -7,8 +7,8 @@ help:
 target_dirs := tests coqpit examples
 
 
-# test:	## run tests.
-# nosetests -x --with-cov -cov  --cover-erase --cover-package coqpit tests --nologcapture
+test:	## run tests.
+	nosetests -x --with-cov -cov  --cover-erase --cover-package coqpit tests --nologcapture
 
 style:	## update code style.
 	black ${target_dirs}
