@@ -27,13 +27,26 @@ class SimpleConfig(Coqpit):
 if __name__ == "__main__":
     file_path = os.path.dirname(os.path.abspath(__file__))
     config = SimpleConfig()
+
+    # try MISSING class argument
     try:
         k = config.val_k
     except AttributeError:
         print(" val_k needs a different value before accessing it.")
     config.val_k = 1000
+
+    # try serialization and deserialization
     print(config.serialize())
     print(config.to_json())
     config.save_json(os.path.join(file_path, "example_config.json"))
     config.load_json(os.path.join(file_path, "example_config.json"))
     print(config.pprint())
+
+    # try `dict` interface
+    print(*config)
+    print(dict(**config))
+
+    # value assignment by mapping
+    config["val_a"] = -999
+    print(config["val_a"])
+    assert config.val_a == -999
