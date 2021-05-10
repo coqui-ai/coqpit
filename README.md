@@ -55,10 +55,12 @@ from coqpit.coqpit import MISSING, Coqpit, check_argument
 class SimpleConfig(Coqpit):
     val_a: int = 10
     val_b: int = None
-    val_d: float = 10.21
     val_c: str = "Coqpit is great!"
-    val_k: int = MISSING  # raise an error when accessing the value if it is not changed. It is a way to define
-    # mandatory fields
+    # You can also add help msgs that are printed when this value passed to argsparse
+    val_d: float = field(default=10.21,  metadata={"help": "this is val_d of SimpleConfig"})
+    # mandatory fields with MISSING
+    # raise an error when accessing the value if it is not changed. It is a way to define
+    val_k: int = MISSING
     val_dict: dict = field(default_factory=lambda: {"val_aa": 10, "val_ss": "This is in a dict."})
 
     def check_values(
@@ -231,7 +233,7 @@ def main():
     args = parser.parse_args()
 
     # parse the argsparser
-    config.from_argparse(args)
+    config.parse_args(args)
     config.pprint()
     # check the current config with the reference config
     assert config == config_ref
