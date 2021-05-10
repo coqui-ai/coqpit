@@ -43,7 +43,7 @@ setup(
     long_description_content_type="text/markdown",
     license='',
     include_package_data=True,
-    packages=find_packages(include=['coqui*']),
+    packages=find_packages(include=['coqpit*']),
     project_urls={
         'Tracker': 'https://github.com/coqui-ai/coqpit/issues',
         'Repository': 'https://github.com/coqui-ai/coqpit',
