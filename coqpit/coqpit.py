@@ -315,7 +315,9 @@ def _init_argparse(
     help_prefix = field_help if help_prefix == "" else f"{help_prefix} - {field_help}"
     if isinstance(field_type, dict):  # pylint: disable=no-else-raise
         # TODO: currently I don't need it
-        raise NotImplementedError(" [!] Parsing `dict` field from argparse is not yet implemented. Please create an issue.")
+        raise NotImplementedError(
+            " [!] Parsing `dict` field from argparse is not yet implemented. Please create an issue."
+        )
     elif is_list(field_type):
         # TODO: We need a more clear help msg for lists.
         if len(field_type.__args__) > 1:
@@ -347,7 +349,9 @@ def _init_argparse(
                 )
     elif is_union(field_type):
         # TODO: currently I don't know how to handle Union type on argparse
-        raise NotImplementedError(" [!] Parsing `Union` field from argparse is not yet implemented. Please create an issue.")
+        raise NotImplementedError(
+            " [!] Parsing `Union` field from argparse is not yet implemented. Please create an issue."
+        )
     elif issubclass(field_type, Serializable):
         return field_value.init_argparse(parser, arg_prefix=arg_prefix, help_prefix=help_prefix)
     elif is_common_type(field_type):
@@ -409,7 +413,7 @@ class Coqpit(Serializable, MutableMapping):
     def __len__(self):
         return len(self.__fields__)
 
-    def __setitem__(self, arg: str, value:Any):
+    def __setitem__(self, arg: str, value: Any):
         setattr(self, arg, value)
 
     def __getitem__(self, arg: str):

@@ -22,7 +22,13 @@ class Group(Coqpit):
 class Reference(Coqpit):
     name: str = "Coqpit"
     size: int = 3
-    people: List[Person] = field(default_factory=lambda:[Person(name="Eren", age=11), Person(name="Geren", age=12), Person(name="Ceren", age=15)])
+    people: List[Person] = field(
+        default_factory=lambda: [
+            Person(name="Eren", age=11),
+            Person(name="Geren", age=12),
+            Person(name="Ceren", age=15),
+        ]
+    )
 
 
 def test_serizalization():
