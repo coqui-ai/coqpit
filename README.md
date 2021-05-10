@@ -1,4 +1,7 @@
 # 👩‍✈️ Coqpit
+
+[![CI](https://github.com/coqui-ai/coqpit/actions/workflows/main.yml/badge.svg?branch=main)](https://github.com/coqui-ai/coqpit/actions/workflows/main.yml)
+
 Simple, light-weight and no dependency config handling through python data classes with to/from JSON serialization/deserialization.
 
 Currently it is being used by [🐸TTS](https://github.com/coqui-ai/TTS).
