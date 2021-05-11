@@ -62,6 +62,9 @@ def _deserialize(x, field_type):
             if len(field_type.__args__) > 1:
                 raise ValueError(" [!] Coqpit does not support multi-type hinted 'List'")
             field_arg = field_type.__args__[0]
+            # if field type is TypeVar set the current type by the value's type.
+            if isinstance(field_arg, TypeVar):
+                field_arg = type(x)
             return [_deserialize(xi, field_arg) for xi in x]
         return x
     if is_union(field_type):

@@ -7,5 +7,15 @@
     "val_dict": {
         "val_aa": 10,
         "val_ss": "This is in a dict."
-    }
+    },
+    "val_listoflist": [
+        [
+            1,
+            2
+        ],
+        [
+            3,
+            4
+        ]
+    ]
 }

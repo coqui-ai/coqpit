@@ -1,5 +1,6 @@
 import os
 from dataclasses import asdict, dataclass, field
+from typing import List
 
 from coqpit.coqpit import MISSING, Coqpit, check_argument
 
@@ -15,6 +16,8 @@ class SimpleConfig(Coqpit):
     val_k: int = MISSING
     # optional field
     val_dict: dict = field(default_factory=lambda: {"val_aa": 10, "val_ss": "This is in a dict."})
+    # list of list
+    val_listoflist: List[List] = field(default_factory=lambda: [[1, 2], [3, 4]])
 
     def check_values(
         self,
