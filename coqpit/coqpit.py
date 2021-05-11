@@ -19,76 +19,6 @@ NoDefaultVar = Union[_NoDefault[T], T]
 no_default: NoDefaultVar = _NoDefault()
 
 
-def _serialize(x):
-    """Pick the right serialization for the datatype of the given input.
-
-    Args:
-        x (object): input object.
-
-    Returns:
-        object: serialized object.
-    """
-    if isinstance(x, dict):
-        return {k: _serialize(v) for k, v in x.items()}
-    if isinstance(x, list):
-        return [_serialize(xi) for xi in x]
-    if isinstance(x, Serializable) or issubclass(type(x), Serializable):
-        return x.serialize()
-    if isinstance(x, type) and issubclass(x, Serializable):
-        return x.serialize(x)
-    return x
-
-
-def _deserialize(x, field_type):
-    """Pick the right desrialization for the given object
-
-    Args:
-        x (object): object to be deserialized.
-        field_type (type): expected type after deserialization.
-
-    Returns:
-        object: deserialized object
-    """
-    if is_dict(field_type):
-        out_dict = {}
-        for k, v in x.items():
-            if v is None:  # if {'key':None}
-                out_dict[k] = None
-            else:
-                out_dict[k] = _deserialize(v, type(v))
-        return out_dict
-    if is_list(field_type):
-        field_args = None
-        if hasattr(field_type, "__args__") and field_type.__args__:
-            field_args = field_type.__args__
-        elif hasattr(field_type, "__parameters__") and field_type.__parameters__:
-            # bandaid for python 3.6
-            field_args = field_type.__parameters__
-        if field_args:
-            if len(field_args) > 1:
-                raise ValueError(" [!] Coqpit does not support multi-type hinted 'List'")
-            field_arg = field_args[0]
-            # if field type is TypeVar set the current type by the value's type.
-            if isinstance(field_arg, TypeVar):
-                field_arg = type(x)
-            return [_deserialize(xi, field_arg) for xi in x]
-        return x
-    if is_union(field_type):
-        for arg in field_type.__args__:
-            # stop after first matching type in Union
-            try:
-                x = _deserialize(x, arg)
-                break
-            except ValueError:
-                pass
-        return x
-    if issubclass(field_type, Serializable):
-        return field_type().deserialize(x)
-    if is_common_type(field_type) and isinstance(x, field_type):
-        return x
-    raise ValueError(f" [!] '{type(x)}' value type of '{x}' does not match '{field_type}' field type.")
-
-
 def is_common_type(arg_type: Any) -> bool:
     """Check if the input type is one of the common types (int, float, str).
 
@@ -211,6 +141,78 @@ def my_get_type_hints(
     r_dict.update(get_type_hints(cls))
     return r_dict
 
+
+def _serialize(x):
+    """Pick the right serialization for the datatype of the given input.
+
+    Args:
+        x (object): input object.
+
+    Returns:
+        object: serialized object.
+    """
+    if isinstance(x, dict):
+        return {k: _serialize(v) for k, v in x.items()}
+    if isinstance(x, list):
+        return [_serialize(xi) for xi in x]
+    if isinstance(x, Serializable) or issubclass(type(x), Serializable):
+        return x.serialize()
+    if isinstance(x, type) and issubclass(x, Serializable):
+        return x.serialize(x)
+    return x
+
+
+def _deserialize(x, field_type):
+    """Pick the right desrialization for the given object and the corresponding field type.
+
+    Args:
+        x (object): object to be deserialized.
+        field_type (type): expected type after deserialization.
+
+    Returns:
+        object: deserialized object
+    """
+    if is_dict(field_type):
+        out_dict = {}
+        for k, v in x.items():
+            if v is None:  # if {'key':None}
+                out_dict[k] = None
+            else:
+                out_dict[k] = _deserialize(v, type(v))
+        return out_dict
+    if is_list(field_type):
+        field_args = None
+        if hasattr(field_type, "__args__") and field_type.__args__:
+            field_args = field_type.__args__
+        elif hasattr(field_type, "__parameters__") and field_type.__parameters__:
+            # bandaid for python 3.6
+            field_args = field_type.__parameters__
+        if field_args:
+            if len(field_args) > 1:
+                raise ValueError(" [!] Coqpit does not support multi-type hinted 'List'")
+            field_arg = field_args[0]
+            # if field type is TypeVar set the current type by the value's type.
+            if isinstance(field_arg, TypeVar):
+                field_arg = type(x)
+            return [_deserialize(xi, field_arg) for xi in x]
+        return x
+    if is_union(field_type):
+        for arg in field_type.__args__:
+            # stop after first matching type in Union
+            try:
+                x = _deserialize(x, arg)
+                break
+            except ValueError:
+                pass
+        return x
+    if issubclass(field_type, Serializable):
+        return field_type().deserialize(x)
+    if is_common_type(field_type):
+        if isinstance(x, str):
+            return x
+        if isinstance(x, (int, float)):
+            return field_type(x)
+    raise ValueError(f" [!] '{type(x)}' value type of '{x}' does not match '{field_type}' field type.")
 
 @dataclass
 class Serializable:
