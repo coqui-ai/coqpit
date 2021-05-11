@@ -40,7 +40,7 @@ def _serialize(x):
 
 
 def _deserialize(x, field_type):
-    """Pick the right desrialization for the give object
+    """Pick the right desrialization for the given object
 
     Args:
         x (object): object to be deserialized.
@@ -58,10 +58,16 @@ def _deserialize(x, field_type):
                 out_dict[k] = _deserialize(v, type(v))
         return out_dict
     if is_list(field_type):
-        if hasattr(field_type, "__args__"):
-            if len(field_type.__args__) > 1:
+        field_args = None
+        if hasattr(field_type, "__args__") and field_type.__args__:
+            field_args = field_type.__args__
+        elif hasattr(field_type, "__parameters__") and field_type.__parameters__:
+            # bandaid for python 3.6
+            field_args = field_type.__parameters__
+        if field_args:
+            if len(field_args) > 1:
                 raise ValueError(" [!] Coqpit does not support multi-type hinted 'List'")
-            field_arg = field_type.__args__[0]
+            field_arg = field_args[0]
             # if field type is TypeVar set the current type by the value's type.
             if isinstance(field_arg, TypeVar):
                 field_arg = type(x)
@@ -78,9 +84,9 @@ def _deserialize(x, field_type):
         return x
     if issubclass(field_type, Serializable):
         return field_type().deserialize(x)
-    if is_common_type(field_type):
+    if is_common_type(field_type) and isinstance(x, field_type):
         return x
-    raise ValueError(f" [!] '{type(x)}' value type does not match '{field_type}' field type.")
+    raise ValueError(f" [!] '{type(x)}' value type of '{x}' does not match '{field_type}' field type.")
 
 
 def is_common_type(arg_type: Any) -> bool:
@@ -107,7 +113,7 @@ def is_list(arg_type: Any) -> bool:
         bool: True if input type is `list`
     """
     try:
-        return arg_type is list or arg_type.__origin__ is list or arg_type.__origin__ is List
+        return arg_type is list or arg_type is List or arg_type.__origin__ is list or arg_type.__origin__ is List
     except AttributeError:
         return False
 
