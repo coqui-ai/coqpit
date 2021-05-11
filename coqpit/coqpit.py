@@ -20,7 +20,7 @@ no_default: NoDefaultVar = _NoDefault()
 
 
 def is_common_type(arg_type: Any) -> bool:
-    """Check if the input type is one of the common types (int, float, str).
+    """Check if the input type is one of the common types (int, float, str, bool).
 
     Args:
         arg_type (typing.Any): input type to check.
@@ -30,7 +30,7 @@ def is_common_type(arg_type: Any) -> bool:
     """
     if is_list(arg_type):
         return False
-    return isinstance(arg_type(), (int, float, str))
+    return isinstance(arg_type(), (int, float, str, bool))
 
 
 def is_list(arg_type: Any) -> bool:
@@ -165,12 +165,15 @@ def _serialize(x):
 def _deserialize(x, field_type):
     """Pick the right desrialization for the given object and the corresponding field type.
 
+    TODO: Refactor with the factory pattern.
+
     Args:
         x (object): object to be deserialized.
         field_type (type): expected type after deserialization.
 
     Returns:
         object: deserialized object
+
     """
     if is_dict(field_type):
         out_dict = {}
@@ -208,7 +211,7 @@ def _deserialize(x, field_type):
     if issubclass(field_type, Serializable):
         return field_type().deserialize(x)
     if is_common_type(field_type):
-        if isinstance(x, str):
+        if isinstance(x, (str, bool)):
             return x
         if isinstance(x, (int, float)):
             return field_type(x)

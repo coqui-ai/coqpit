@@ -3,6 +3,7 @@
     "val_b": null,
     "val_d": 10.21,
     "val_c": "Coqpit is great!",
+    "vol_e": true,
     "val_k": 1000,
     "val_dict": {
         "val_aa": 10,
@@ -26,6 +27,10 @@
         [
             1,
             "Hi!"
+        ],
+        [
+            true,
+            false
         ]
     ]
 }
