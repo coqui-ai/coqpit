@@ -214,6 +214,9 @@ def _deserialize(x, field_type):
         if isinstance(x, (str, bool)):
             return x
         if isinstance(x, (int, float)):
+            if x == float('inf') or x == float('-inf'):
+                # if value type is inf return regardless.
+                return x
             return field_type(x)
     raise ValueError(f" [!] '{type(x)}' value type of '{x}' does not match '{field_type}' field type.")
 
