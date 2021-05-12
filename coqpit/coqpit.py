@@ -235,19 +235,22 @@ def _deserialize_common_types(x: Union[int, float, str, bool], field_type: Type)
     It handles `inf` values exclusively and keeps them float against int fields since int does not support inf values.
 
     Args:
-        x ([type]): [description]
-        field_type ([type]): [description]
+        x (Union[int, float, str, bool]): value to be deserialized.
+        field_type (Type): field type.
 
     Returns:
-        [type]: [description]
+        Union[int, float, str, bool]: deserialized value.
     """
+
     if isinstance(x, (str, bool)):
         return x
     if isinstance(x, (int, float)):
         if x == float("inf") or x == float("-inf"):
             # if value type is inf return regardless.
             return x
-        return field_type(x)
+        x = field_type(x)
+        return x
+    return None
 
 
 def _deserialize(x: Any, field_type: Any) -> Any:
