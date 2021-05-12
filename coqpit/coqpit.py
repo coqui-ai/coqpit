@@ -5,7 +5,7 @@ from collections.abc import MutableMapping
 from dataclasses import MISSING as _MISSING
 from dataclasses import Field, asdict, dataclass, fields, is_dataclass
 from pprint import pprint
-from typing import Any, Generic, List, TypeVar, Union, get_type_hints
+from typing import Any, Generic, List, Type, TypeVar, Union, Dict, get_type_hints
 
 T = TypeVar("T")
 MISSING: Any = "???"
@@ -162,10 +162,96 @@ def _serialize(x):
     return x
 
 
-def _deserialize(x, field_type):
-    """Pick the right desrialization for the given object and the corresponding field type.
+def _deserialize_dict(x: Dict) -> Dict:
+    """Deserialize dict.
 
-    TODO: Refactor with the factory pattern.
+    Args:
+        x (Dict): value to deserialized.
+
+    Returns:
+        Dict: deserialized dictionary.
+    """
+    out_dict = {}
+    for k, v in x.items():
+        if v is None:  # if {'key':None}
+            out_dict[k] = None
+        else:
+            out_dict[k] = _deserialize(v, type(v))
+    return out_dict
+
+
+def _deserialize_list(x: List, field_type: Type) -> List:
+    """Deserialize values for List typed fields.
+
+    Args:
+        x (List): value to be deserialized
+        field_type (Type): field type.
+
+    Raises:
+        ValueError: Coqpit does not support multi type-hinted lists.
+
+    Returns:
+        [List]: deserialized list.
+    """
+    field_args = None
+    if hasattr(field_type, "__args__") and field_type.__args__:
+        field_args = field_type.__args__
+    elif hasattr(field_type, "__parameters__") and field_type.__parameters__:
+        # bandaid for python 3.6
+        field_args = field_type.__parameters__
+    if field_args:
+        if len(field_args) > 1:
+            raise ValueError(" [!] Coqpit does not support multi-type hinted 'List'")
+        field_arg = field_args[0]
+        # if field type is TypeVar set the current type by the value's type.
+        if isinstance(field_arg, TypeVar):
+            field_arg = type(x)
+        return [_deserialize(xi, field_arg) for xi in x]
+    return x
+
+
+def _deserialize_union(x: Any, field_type: Type) -> Any:
+    """Deserialize values for Union typed fields
+
+    Args:
+        x (Any): value to be deserialized.
+        field_type (Type): field type.
+
+    Returns:
+        [Any]: desrialized value.
+    """
+    for arg in field_type.__args__:
+        # stop after first matching type in Union
+        try:
+            x = _deserialize(x, arg)
+            break
+        except ValueError:
+            pass
+    return x
+
+
+def _deserialize_common_types(x: Union[int, float, str, bool], field_type: Type) -> Union[int, float, str, bool]:
+    """Deserialize python commong types (float, int, str, bool).
+    It handles `inf` values exclusively and keeps them float against int fields since int does not support inf values.
+
+    Args:
+        x ([type]): [description]
+        field_type ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
+    if isinstance(x, (str, bool)):
+        return x
+    if isinstance(x, (int, float)):
+        if x == float("inf") or x == float("-inf"):
+            # if value type is inf return regardless.
+            return x
+        return field_type(x)
+
+
+def _deserialize(x: Any, field_type: Any) -> Any:
+    """Pick the right desrialization for the given object and the corresponding field type.
 
     Args:
         x (object): object to be deserialized.
@@ -175,50 +261,19 @@ def _deserialize(x, field_type):
         object: deserialized object
 
     """
+    # pylint: disable=too-many-return-statements
     if is_dict(field_type):
-        out_dict = {}
-        for k, v in x.items():
-            if v is None:  # if {'key':None}
-                out_dict[k] = None
-            else:
-                out_dict[k] = _deserialize(v, type(v))
-        return out_dict
+        return _deserialize_dict(x)
     if is_list(field_type):
-        field_args = None
-        if hasattr(field_type, "__args__") and field_type.__args__:
-            field_args = field_type.__args__
-        elif hasattr(field_type, "__parameters__") and field_type.__parameters__:
-            # bandaid for python 3.6
-            field_args = field_type.__parameters__
-        if field_args:
-            if len(field_args) > 1:
-                raise ValueError(" [!] Coqpit does not support multi-type hinted 'List'")
-            field_arg = field_args[0]
-            # if field type is TypeVar set the current type by the value's type.
-            if isinstance(field_arg, TypeVar):
-                field_arg = type(x)
-            return [_deserialize(xi, field_arg) for xi in x]
-        return x
+        return _deserialize_list(x, field_type)
     if is_union(field_type):
-        for arg in field_type.__args__:
-            # stop after first matching type in Union
-            try:
-                x = _deserialize(x, arg)
-                break
-            except ValueError:
-                pass
-        return x
+        return _deserialize_union(x, field_type)
     if issubclass(field_type, Serializable):
         return field_type().deserialize(x)
     if is_common_type(field_type):
-        if isinstance(x, (str, bool)):
-            return x
-        if isinstance(x, (int, float)):
-            if x == float('inf') or x == float('-inf'):
-                # if value type is inf return regardless.
-                return x
-            return field_type(x)
+        return _deserialize_common_types(x, field_type)
     raise ValueError(f" [!] '{type(x)}' value type of '{x}' does not match '{field_type}' field type.")
+
 
 @dataclass
 class Serializable:
