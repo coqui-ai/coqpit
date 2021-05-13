@@ -7,7 +7,7 @@ from collections.abc import MutableMapping
 from dataclasses import MISSING as _MISSING
 from dataclasses import Field, asdict, dataclass, fields, is_dataclass
 from pprint import pprint
-from typing import Any, Generic, List, Type, TypeVar, Union, Dict, get_type_hints
+from typing import Any, Generic, List, Optional, Type, TypeVar, Union, Dict, get_type_hints
 
 T = TypeVar("T")
 MISSING: Any = "???"
@@ -655,17 +655,19 @@ class Coqpit(Serializable, MutableMapping):
 
         self.check_values()
 
-    def init_argparse(self, parser: argparse.ArgumentParser, arg_prefix="", help_prefix="") -> argparse.ArgumentParser:
+    def init_argparse(self, parser: Optional[argparse.ArgumentParser] = None, arg_prefix="", help_prefix="") -> argparse.ArgumentParser:
         """Pass Coqpit fields as argparse arguments. This allows to edit values through command-line.
 
         Args:
-            parser (argparse.ArgumentParser): argparse.ArgumentParser instance.
+            parser (argparse.ArgumentParser, optional): argparse.ArgumentParser instance. If unspecified a new one will be created.
             arg_prefix (str, optional): Prefix to be used for the argument name. Defaults to ''.
             help_prefix (str, optional): Prefix to be used for the argument description. Defaults to ''.
 
         Returns:
             argparse.ArgumentParser: parser instance with the new arguments.
         """
+        if not parser:
+            parser = argparse.ArgumentParser()
         class_fields = fields(self)
         field_value = None
         for field in class_fields:
