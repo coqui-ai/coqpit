@@ -631,15 +631,18 @@ class Coqpit(Serializable, MutableMapping):
         self = self.deserialize(dump_dict)  # pylint: disable=self-cls-assignment
         self.check_values()
 
-    def parse_args(self, args: argparse.Namespace) -> None:
+    def parse_args(self, args: Optional[argparse.Namespace] = None) -> None:
         """Update config values from argparse arguments with some meta-programming ✨.
 
         Args:
-            args (namespace): argeparse namespace as an output of ```argparse.parse_arguments()```.
+            args (namespace, optional): argeparse namespace as an output of ```argparse.parse_arguments()```. If unspecified will use a newly created parser with ```init_argparse()```.
 
         Returns:
             Coqpit: new config object with updated values.
         """
+        if not args:
+            parser = self.init_argparse()
+            args = parser.parse_args()
         if isinstance(args, argparse.Namespace):
             args_dict = vars(args)
         elif isinstance(args, list):
