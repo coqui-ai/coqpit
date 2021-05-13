@@ -455,6 +455,18 @@ def _init_argparse(
         )
     elif issubclass(field_type, Serializable):
         return field_value.init_argparse(parser, arg_prefix=arg_prefix, help_prefix=help_prefix)
+    elif isinstance(field_type(), bool):
+        parser.add_argument(
+            f"--{arg_prefix}",
+            dest=arg_prefix,
+            action="store_true",
+        )
+        parser.add_argument(
+            f"--no{arg_prefix}",
+            dest=arg_prefix,
+            action="store_false"
+        )
+        parser.set_defaults(**{arg_prefix: field_value})
     elif is_common_type(field_type):
         parser.add_argument(
             f"--{arg_prefix}",
