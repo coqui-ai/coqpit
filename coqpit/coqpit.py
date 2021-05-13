@@ -1,6 +1,8 @@
 import argparse
+import functools
 import json
 import os
+import operator
 from collections.abc import MutableMapping
 from dataclasses import MISSING as _MISSING
 from dataclasses import Field, asdict, dataclass, fields, is_dataclass
@@ -278,6 +280,27 @@ def _deserialize(x: Any, field_type: Any) -> Any:
     raise ValueError(f" [!] '{type(x)}' value type of '{x}' does not match '{field_type}' field type.")
 
 
+# Recursive setattr (supports dotted attr names)
+def rsetattr(obj, attr, val):
+    def _setitem(obj, attr, val):
+        return operator.setitem(obj, int(attr), val)
+
+    pre, _, post = attr.rpartition('.')
+    setfunc = _setitem if pre.isnumeric() else setattr
+    return setfunc(rgetattr(obj, pre) if pre else obj, post, val)
+
+
+# Recursive getattr (supports dotted attr names)
+def rgetattr(obj, attr, *args):
+    def _getitem(obj, attr):
+        return operator.getitem(obj, int(attr), *args)
+
+    def _getattr(obj, attr):
+        getfunc = _getitem if attr.isnumeric() else getattr
+        return getfunc(obj, attr, *args)
+    return functools.reduce(_getattr, [obj] + attr.split('.'))
+
+
 @dataclass
 class Serializable:
     """Gives serialization ability to any inheriting dataclass."""
@@ -434,7 +457,7 @@ def _init_argparse(
         return field_value.init_argparse(parser, arg_prefix=arg_prefix, help_prefix=help_prefix)
     elif is_common_type(field_type):
         parser.add_argument(
-            f"--coqpit.{arg_prefix}",
+            f"--{arg_prefix}",
             default=field_value,
             type=field_type,
             help=f"Coqpit Field: {help_prefix}",
@@ -623,28 +646,13 @@ class Coqpit(Serializable, MutableMapping):
             # overriding values from .parse_known_args()
             args_dict = dict([*zip(args[::2], args[1::2])])
         for k, v in args_dict.items():
-            if k.replace("--", "").startswith("coqpit") and "." in k:
-                _, k = k.split(".", 1)
-                names = k.split(".")
-                cmd = "self"
-                for name in names:
-                    if str.isnumeric(name):
-                        cmd += f"[{name}]"
-                    else:
-                        cmd += f".{name}"
-                try:
-                    exec(cmd)  # pylint: disable=exec-used
-                except (TypeError, AttributeError) as e:
-                    raise Exception(f" [!] '{k}' not exist to override from argparse.") from e
+            try:
+                rgetattr(self, k)
+            except (TypeError, AttributeError) as e:
+                raise Exception(f" [!] '{k}' not exist to override from argparse.") from e
 
-                if v is None:
-                    cmd += "= None"
-                elif isinstance(v, str):
-                    cmd += f"= '{v}'"
-                else:
-                    cmd += f"= {v}"
+            rsetattr(self, k, v)
 
-                exec(cmd)  # pylint: disable=exec-used
         self.check_values()
 
     def init_argparse(self, parser: argparse.ArgumentParser, arg_prefix="", help_prefix="") -> argparse.ArgumentParser:
