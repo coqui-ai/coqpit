@@ -34,11 +34,11 @@ class SimpleConfig(Coqpit):
 
 def test_parse_argparse():
     args = []
-    args.extend(["--val_a", "222"])
-    args.extend(["--val_b", "999"])
-    args.extend(["--val_c", "this is different"])
-    args.extend(["--mylist_with_default.0.val_a", "222"])
-    args.extend(["--mylist_with_default.1.val_a", "111"])
+    args.extend(["--coqpit.val_a", "222"])
+    args.extend(["--coqpit.val_b", "999"])
+    args.extend(["--coqpit.val_c", "this is different"])
+    args.extend(["--coqpit.mylist_with_default.0.val_a", "222"])
+    args.extend(["--coqpit.mylist_with_default.1.val_a", "111"])
 
     # initial config
     config = SimpleConfig()

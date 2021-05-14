@@ -643,7 +643,7 @@ class Coqpit(Serializable, MutableMapping):
         self = self.deserialize(dump_dict)  # pylint: disable=self-cls-assignment
         self.check_values()
 
-    def parse_args(self, args: Optional[argparse.Namespace] = None) -> None:
+    def parse_args(self, args: Optional[Union[argparse.Namespace, List[str]]] = None, arg_prefix: str = "coqpit") -> None:
         """Update config values from argparse arguments with some meta-programming ✨.
 
         Args:
@@ -653,14 +653,19 @@ class Coqpit(Serializable, MutableMapping):
             Coqpit: new config object with updated values.
         """
         if not args:
+            # If args was not specified, parse from sys.argv
             parser = self.init_argparse()
             args = parser.parse_args()
-        if isinstance(args, argparse.Namespace):
-            args_dict = vars(args)
-        elif isinstance(args, list):
-            # overriding values from .parse_known_args()
-            args_dict = dict([*zip(args[::2], args[1::2])])
+        if isinstance(args, list):
+            # If a list was passed in (eg. the second result of `parse_known_args`, run that through argparse first to get a parsed Namespace
+            parser = self.init_argparse()
+            args = parser.parse_args(args)
+
+        args_dict = vars(args)
+
         for k, v in args_dict.items():
+            if k.startswith(f"{arg_prefix}."):
+                k = k[len(f"{arg_prefix}."):]
             try:
                 rgetattr(self, k)
             except (TypeError, AttributeError) as e:
@@ -670,12 +675,12 @@ class Coqpit(Serializable, MutableMapping):
 
         self.check_values()
 
-    def init_argparse(self, parser: Optional[argparse.ArgumentParser] = None, arg_prefix="", help_prefix="") -> argparse.ArgumentParser:
+    def init_argparse(self, parser: Optional[argparse.ArgumentParser] = None, arg_prefix="coqpit", help_prefix="") -> argparse.ArgumentParser:
         """Pass Coqpit fields as argparse arguments. This allows to edit values through command-line.
 
         Args:
             parser (argparse.ArgumentParser, optional): argparse.ArgumentParser instance. If unspecified a new one will be created.
-            arg_prefix (str, optional): Prefix to be used for the argument name. Defaults to ''.
+            arg_prefix (str, optional): Prefix to be used for the argument name. Defaults to 'coqpit'.
             help_prefix (str, optional): Prefix to be used for the argument description. Defaults to ''.
 
         Returns:
