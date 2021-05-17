@@ -653,18 +653,16 @@ class Coqpit(Serializable, MutableMapping):
         """Update config values from argparse arguments with some meta-programming ✨.
 
         Args:
-            args (namespace, optional): argeparse namespace as an output of ```argparse.parse_arguments()```. If unspecified will use a newly created parser with ```init_argparse()```.
-
-        Returns:
-            Coqpit: new config object with updated values.
+            args (namespace or list of str, optional): parsed argparse.Namespace or list of command line parameters. If unspecified will use a newly created parser with ```init_argparse()```.
+            arg_prefix: prefix to add to CLI parameters. Gets forwarded to ```init_argparse``` when ```args``` is not passed.
         """
         if not args:
             # If args was not specified, parse from sys.argv
-            parser = self.init_argparse()
+            parser = self.init_argparse(arg_prefix=arg_prefix)
             args = parser.parse_args()
         if isinstance(args, list):
             # If a list was passed in (eg. the second result of `parse_known_args`, run that through argparse first to get a parsed Namespace
-            parser = self.init_argparse()
+            parser = self.init_argparse(arg_prefix=arg_prefix)
             args = parser.parse_args(args)
 
         args_dict = vars(args)
@@ -680,6 +678,30 @@ class Coqpit(Serializable, MutableMapping):
             rsetattr(self, k, v)
 
         self.check_values()
+
+    def parse_known_args(self, args: Optional[Union[argparse.Namespace, List[str]]] = None, arg_prefix: str = "coqpit") -> List[str]:
+        """Update config values from argparse arguments. Ignore unknown arguments.
+           This is analog to argparse.ArgumentParser.parse_known_args (vs parse_args).
+
+        Args:
+            args (namespace or list of str, optional): parsed argparse.Namespace or list of command line parameters. If unspecified will use a newly created parser with ```init_argparse()```.
+            arg_prefix: prefix to add to CLI parameters. Gets forwarded to ```init_argparse``` when ```args``` is not passed.
+
+        Returns:
+            List of unknown parameters.
+        """
+        if not args:
+            # If args was not specified, parse from sys.argv
+            parser = self.init_argparse(arg_prefix=arg_prefix)
+            args, unknown = parser.parse_known_args()
+        if isinstance(args, list):
+            # If a list was passed in (eg. the second result of `parse_known_args`, run that through argparse first to get a parsed Namespace
+            parser = self.init_argparse(arg_prefix=arg_prefix)
+            args, unknown = parser.parse_known_args(args)
+
+        self.parse_args(args)
+        return unknown
+
 
     def init_argparse(self, parser: Optional[argparse.ArgumentParser] = None, arg_prefix="coqpit", help_prefix="") -> argparse.ArgumentParser:
         """Pass Coqpit fields as argparse arguments. This allows to edit values through command-line.
