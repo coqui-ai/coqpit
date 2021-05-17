@@ -14,7 +14,7 @@ class SimpleConfig(Coqpit):
     val_a: int = field(default=10, metadata={"help": "this is val_a of SimpleConfig"})
     val_b: int = field(default=None, metadata={"help": "this is val_b"})
     val_c: str = "Coqpit is great!"
-    val_dict: dict = field(default_factory= lambda: {"val_a": 100, "val_b": 200, "val_c": 300})
+    val_dict: dict = field(default_factory=lambda: {"val_a": 100, "val_b": 200, "val_c": 300})
     mylist_with_default: List[SimplerConfig] = field(
         default_factory=lambda: [SimplerConfig(val_a=100), SimplerConfig(val_a=999)],
         metadata={"help": "list of SimplerConfig"},
@@ -54,7 +54,7 @@ def test_parse_argparse():
         val_a=222,
         val_b=999,
         val_c="this is different",
-        val_dict={'val_a':10, 'val_b':20},
+        val_dict={"val_a": 10, "val_b": 20},
         mylist_with_default=[SimplerConfig(val_a=222), SimplerConfig(val_a=111)],
         empty_int_list=[111, 222, 333],
         empty_str_list=["[foo=bar]", "[baz=qux]", "[blah,p=0.5,r=1~3]"],
@@ -78,8 +78,10 @@ def test_boolean_parse():
         boolean_with_default: bool = field(default=False)
 
     args = [
-        "--coqpit.boolean_without_default", "false",
-        "--coqpit.boolean_with_default", "true",
+        "--coqpit.boolean_without_default",
+        "false",
+        "--coqpit.boolean_with_default",
+        "true",
     ]
 
     config_ref = Config(
@@ -93,12 +95,14 @@ def test_boolean_parse():
     assert config == config_ref
 
     args = [
-        "--coqpit.boolean_without_default", "blargh",
-        "--coqpit.boolean_with_default", "true",
+        "--coqpit.boolean_without_default",
+        "blargh",
+        "--coqpit.boolean_with_default",
+        "true",
     ]
 
     try:
         config.parse_args(args)
         assert False, "should not reach this"
-    except: # pylint: disable=bare-except
+    except:  # pylint: disable=bare-except
         pass

@@ -1,13 +1,13 @@
 import argparse
 import functools
 import json
-import os
 import operator
+import os
 from collections.abc import MutableMapping
 from dataclasses import MISSING as _MISSING
 from dataclasses import Field, asdict, dataclass, fields, is_dataclass
 from pprint import pprint
-from typing import Any, Generic, List, Optional, Type, TypeVar, Union, Dict, get_type_hints
+from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union, get_type_hints
 
 T = TypeVar("T")
 MISSING: Any = "???"
@@ -46,12 +46,7 @@ def is_list(arg_type: Any) -> bool:
         bool: True if input type is `list`
     """
     try:
-        return (
-            arg_type is list or
-            arg_type is List or
-            arg_type.__origin__ is list or
-            arg_type.__origin__ is List
-        )
+        return arg_type is list or arg_type is List or arg_type.__origin__ is list or arg_type.__origin__ is List
     except AttributeError:
         return False
 
@@ -291,7 +286,7 @@ def rsetattr(obj, attr, val):
     def _setitem(obj, attr, val):
         return operator.setitem(obj, int(attr), val)
 
-    pre, _, post = attr.rpartition('.')
+    pre, _, post = attr.rpartition(".")
     setfunc = _setitem if pre.isnumeric() else setattr
     return setfunc(rgetattr(obj, pre) if pre else obj, post, val)
 
@@ -304,7 +299,8 @@ def rgetattr(obj, attr, *args):
     def _getattr(obj, attr):
         getfunc = _getitem if attr.isnumeric() else getattr
         return getfunc(obj, attr, *args)
-    return functools.reduce(_getattr, [obj] + attr.split('.'))
+
+    return functools.reduce(_getattr, [obj] + attr.split("."))
 
 
 @dataclass
@@ -426,7 +422,7 @@ def _init_argparse(
             f"--{arg_prefix}",
             dest=arg_prefix,
             default=json.dumps(field_value) if field_value else None,
-            type=json.loads
+            type=json.loads,
         )
     elif is_list(field_type):
         # TODO: We need a more clear help msg for lists.
@@ -441,7 +437,7 @@ def _init_argparse(
             # If the list's default value is None, the user can specify the entire list by passing multiple parameters
             parser.add_argument(
                 f"--{arg_prefix}",
-                nargs='*',
+                nargs="*",
                 type=list_field_type,
                 help=f"Coqpit Field: {help_prefix}",
             )
@@ -466,9 +462,10 @@ def _init_argparse(
     elif issubclass(field_type, Serializable):
         return field_value.init_argparse(parser, arg_prefix=arg_prefix, help_prefix=help_prefix)
     elif isinstance(field_type(), bool):
+
         def parse_bool(x):
             if x not in ("true", "false"):
-                raise ValueError(f" [!] Value for boolean field must be either \"true\" or \"false\". Got \"{x}\".")
+                raise ValueError(f' [!] Value for boolean field must be either "true" or "false". Got "{x}".')
             return x == "true"
 
         parser.add_argument(
@@ -652,7 +649,9 @@ class Coqpit(Serializable, MutableMapping):
         self = self.deserialize(dump_dict)  # pylint: disable=self-cls-assignment
         self.check_values()
 
-    def parse_args(self, args: Optional[Union[argparse.Namespace, List[str]]] = None, arg_prefix: str = "coqpit") -> None:
+    def parse_args(
+        self, args: Optional[Union[argparse.Namespace, List[str]]] = None, arg_prefix: str = "coqpit"
+    ) -> None:
         """Update config values from argparse arguments with some meta-programming ✨.
 
         Args:
@@ -672,7 +671,7 @@ class Coqpit(Serializable, MutableMapping):
 
         for k, v in args_dict.items():
             if k.startswith(f"{arg_prefix}."):
-                k = k[len(f"{arg_prefix}."):]
+                k = k[len(f"{arg_prefix}.") :]
             try:
                 rgetattr(self, k)
             except (TypeError, AttributeError) as e:
@@ -682,7 +681,9 @@ class Coqpit(Serializable, MutableMapping):
 
         self.check_values()
 
-    def parse_known_args(self, args: Optional[Union[argparse.Namespace, List[str]]] = None, arg_prefix: str = "coqpit") -> List[str]:
+    def parse_known_args(
+        self, args: Optional[Union[argparse.Namespace, List[str]]] = None, arg_prefix: str = "coqpit"
+    ) -> List[str]:
         """Update config values from argparse arguments. Ignore unknown arguments.
            This is analog to argparse.ArgumentParser.parse_known_args (vs parse_args).
 
@@ -705,8 +706,9 @@ class Coqpit(Serializable, MutableMapping):
         self.parse_args(args)
         return unknown
 
-
-    def init_argparse(self, parser: Optional[argparse.ArgumentParser] = None, arg_prefix="coqpit", help_prefix="") -> argparse.ArgumentParser:
+    def init_argparse(
+        self, parser: Optional[argparse.ArgumentParser] = None, arg_prefix="coqpit", help_prefix=""
+    ) -> argparse.ArgumentParser:
         """Pass Coqpit fields as argparse arguments. This allows to edit values through command-line.
 
         Args:
