@@ -233,8 +233,8 @@ def _deserialize_union(x: Any, field_type: Type) -> Any:
     return x
 
 
-def _deserialize_common_types(x: Union[int, float, str, bool], field_type: Type) -> Union[int, float, str, bool]:
-    """Deserialize python commong types (float, int, str, bool).
+def _deserialize_primitive_types(x: Union[int, float, str, bool], field_type: Type) -> Union[int, float, str, bool]:
+    """Deserialize python primitive types (float, int, str, bool).
     It handles `inf` values exclusively and keeps them float against int fields since int does not support inf values.
 
     Args:
@@ -253,6 +253,7 @@ def _deserialize_common_types(x: Union[int, float, str, bool], field_type: Type)
             return x
         x = field_type(x)
         return x
+    # TODO: Raise an error when x does not match the types.
     return None
 
 
@@ -277,7 +278,7 @@ def _deserialize(x: Any, field_type: Any) -> Any:
     if issubclass(field_type, Serializable):
         return field_type().deserialize(x)
     if is_primitive_type(field_type):
-        return _deserialize_common_types(x, field_type)
+        return _deserialize_primitive_types(x, field_type)
     raise ValueError(f" [!] '{type(x)}' value type of '{x}' does not match '{field_type}' field type.")
 
 
