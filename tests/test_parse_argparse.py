@@ -1,4 +1,3 @@
-import argparse
 from dataclasses import asdict, dataclass, field
 from typing import List
 
@@ -19,6 +18,8 @@ class SimpleConfig(Coqpit):
         default_factory=lambda: [SimplerConfig(val_a=100), SimplerConfig(val_a=999)],
         metadata={"help": "list of SimplerConfig"},
     )
+    empty_int_list: List[int] = field(default=None, metadata={"help": "int list without default value"})
+    empty_str_list: List[str] = field(default=None, metadata={"help": "str list without default value"})
 
     # mylist_without_default: List[SimplerConfig] = field(default=None, metadata={'help': 'list of SimplerConfig'})  # NOT SUPPORTED YET!
 
@@ -39,6 +40,8 @@ def test_parse_argparse():
     args.extend(["--coqpit.val_c", "this is different"])
     args.extend(["--coqpit.mylist_with_default.0.val_a", "222"])
     args.extend(["--coqpit.mylist_with_default.1.val_a", "111"])
+    args.extend(["--coqpit.empty_int_list", "111", "222", "333"])
+    args.extend(["--coqpit.empty_str_list", "[foo=bar]", "[baz=qux]", "[blah,p=0.5,r=1~3]"])
 
     # initial config
     config = SimpleConfig()
@@ -50,13 +53,13 @@ def test_parse_argparse():
         val_b=999,
         val_c="this is different",
         mylist_with_default=[SimplerConfig(val_a=222), SimplerConfig(val_a=111)],
+        empty_int_list=[111, 222, 333],
+        empty_str_list=["[foo=bar]", "[baz=qux]", "[blah,p=0.5,r=1~3]"],
     )
 
     # create and init argparser with Coqpit
-    parser = argparse.ArgumentParser()
-    parser = config.init_argparse(parser)
+    parser = config.init_argparse()
     parser.print_help()
-    args = parser.parse_args(args)
 
     # parse the argsparser
     config.parse_args(args)

@@ -21,14 +21,14 @@ NoDefaultVar = Union[_NoDefault[T], T]
 no_default: NoDefaultVar = _NoDefault()
 
 
-def is_common_type(arg_type: Any) -> bool:
-    """Check if the input type is one of the common types (int, float, str, bool).
+def is_primitive_type(arg_type: Any) -> bool:
+    """Check if the input type is one of `int, float, str, bool`.
 
     Args:
         arg_type (typing.Any): input type to check.
 
     Returns:
-        bool: True if input type is one of `int, float, str`.
+        bool: True if input type is one of `int, float, str, bool`.
     """
     if is_list(arg_type):
         return False
@@ -45,7 +45,12 @@ def is_list(arg_type: Any) -> bool:
         bool: True if input type is `list`
     """
     try:
-        return arg_type is list or arg_type is List or arg_type.__origin__ is list or arg_type.__origin__ is List
+        return (
+            arg_type is list or
+            arg_type is List or
+            arg_type.__origin__ is list or
+            arg_type.__origin__ is List
+        )
     except AttributeError:
         return False
 
@@ -275,7 +280,7 @@ def _deserialize(x: Any, field_type: Any) -> Any:
         return _deserialize_union(x, field_type)
     if issubclass(field_type, Serializable):
         return field_type().deserialize(x)
-    if is_common_type(field_type):
+    if is_primitive_type(field_type):
         return _deserialize_common_types(x, field_type)
     raise ValueError(f" [!] '{type(x)}' value type of '{x}' does not match '{field_type}' field type.")
 
@@ -409,8 +414,8 @@ def _init_argparse(
     arg_prefix="",
     help_prefix="",
 ):
-    if field_value is None and not is_common_type(field_type):
-        # if the field type not int, flot or str, do not add it to the arguments
+    if field_value is None and not is_primitive_type(field_type) and not is_list(field_type):
+        # aggregate types (fields with a Coqpit subclass as type) are not supported without None
         return parser
     arg_prefix = field_name if arg_prefix == "" else f"{arg_prefix}.{field_name}"
     help_prefix = field_help if help_prefix == "" else f"{help_prefix} - {field_help}"
@@ -424,19 +429,20 @@ def _init_argparse(
         if len(field_type.__args__) > 1:
             raise ValueError(" [!] Coqpit does not support multi-type hinted 'List'")
         list_field_type = field_type.__args__[0]
-        if field_value is None:  # pylint: disable=no-else-raise
-            # if the list is None, assume insertion of a new value/object to the list[0]
-            # parser = _init_argparse(parser,
-            #                         '0.',
-            #                         list_field_type,
-            #                         list_field_type(),
-            #                         field_help='',
-            #                         help_prefix=f'insert a new {list_field_type} to index 0 - {help_prefix} - ',
-            #                         arg_prefix=f'{arg_prefix}.')
-            # TODO: it complicates parsing argparse
-            raise NotImplementedError(" [!] Please create an issue.")
+
+        if field_value is None:
+            if not is_primitive_type(list_field_type):
+                raise NotImplementedError(" [!] Empty list with non primitive inner type is currently not supported.")
+
+            # If the list's default value is None, the user can specify the entire list by passing multiple parameters
+            parser.add_argument(
+                f"--{arg_prefix}",
+                nargs='*',
+                type=list_field_type,
+                help=f"Coqpit Field: {help_prefix}",
+            )
         else:
-            # if a list is defined, just enable editing the values from argparse
+            # If a default value is defined, just enable editing the values from argparse
             # TODO: allow inserting a new value/obj to the end of the list.
             for idx, fv in enumerate(field_value):
                 parser = _init_argparse(
@@ -467,7 +473,7 @@ def _init_argparse(
             action="store_false"
         )
         parser.set_defaults(**{arg_prefix: field_value})
-    elif is_common_type(field_type):
+    elif is_primitive_type(field_type):
         parser.add_argument(
             f"--{arg_prefix}",
             default=field_value,
