@@ -419,10 +419,13 @@ def _init_argparse(
         return parser
     arg_prefix = field_name if arg_prefix == "" else f"{arg_prefix}.{field_name}"
     help_prefix = field_help if help_prefix == "" else f"{help_prefix} - {field_help}"
-    if isinstance(field_type, dict):  # pylint: disable=no-else-raise
-        # TODO: currently I don't need it
-        raise NotImplementedError(
-            " [!] Parsing `dict` field from argparse is not yet implemented. Please create an issue."
+    if is_dict(field_type):  # pylint: disable=no-else-raise
+        # NOTE: accept any string in json format as input to dict field.
+        parser.add_argument(
+            f"--{arg_prefix}",
+            dest=arg_prefix,
+            default=json.dumps(field_value) if field_value else None,
+            type=json.loads
         )
     elif is_list(field_type):
         # TODO: We need a more clear help msg for lists.
