@@ -30,9 +30,10 @@ def is_primitive_type(arg_type: Any) -> bool:
     Returns:
         bool: True if input type is one of `int, float, str, bool`.
     """
-    if is_list(arg_type):
+    try:
+        return isinstance(arg_type(), (int, float, str, bool))
+    except (AttributeError, TypeError):
         return False
-    return isinstance(arg_type(), (int, float, str, bool))
 
 
 def is_list(arg_type: Any) -> bool:
