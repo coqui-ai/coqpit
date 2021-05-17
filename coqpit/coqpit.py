@@ -462,17 +462,16 @@ def _init_argparse(
     elif issubclass(field_type, Serializable):
         return field_value.init_argparse(parser, arg_prefix=arg_prefix, help_prefix=help_prefix)
     elif isinstance(field_type(), bool):
+        def parse_bool(x):
+            if x not in ("true", "false"):
+                raise ValueError(f" [!] Value for boolean field must be either \"true\" or \"false\". Got \"{x}\".")
+            return x == "true"
+
         parser.add_argument(
             f"--{arg_prefix}",
-            dest=arg_prefix,
-            action="store_true",
+            type=parse_bool,
+            default=field_value,
         )
-        parser.add_argument(
-            f"--no{arg_prefix}",
-            dest=arg_prefix,
-            action="store_false"
-        )
-        parser.set_defaults(**{arg_prefix: field_value})
     elif is_primitive_type(field_type):
         parser.add_argument(
             f"--{arg_prefix}",

@@ -66,3 +66,36 @@ def test_parse_argparse():
     config.pprint()
     # check the current config with the reference config
     assert config == config_ref
+
+
+def test_boolean_parse():
+    @dataclass
+    class Config(Coqpit):
+        boolean_without_default: bool = field()
+        boolean_with_default: bool = field(default=False)
+
+    args = [
+        "--coqpit.boolean_without_default", "false",
+        "--coqpit.boolean_with_default", "true",
+    ]
+
+    config_ref = Config(
+        boolean_without_default=False,
+        boolean_with_default=True,
+    )
+
+    config = Config(boolean_without_default=True)
+    config.parse_args(args)
+
+    assert config == config_ref
+
+    args = [
+        "--coqpit.boolean_without_default", "blargh",
+        "--coqpit.boolean_with_default", "true",
+    ]
+
+    try:
+        config.parse_args(args)
+        assert False, "should not reach this"
+    except: # pylint: disable=bare-except
+        pass
