@@ -21,3 +21,7 @@ repos:
       - id: isort
         name: isort (pyi)
         types: [pyi]
+  - repo: https://github.com/pycqa/pylint
+    rev: v2.8.2
+    hooks:
+    -   id: pylint
