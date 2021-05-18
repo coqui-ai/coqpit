@@ -18,10 +18,6 @@ class SimpleConfig(Coqpit):
         default_factory=lambda: [SimplerConfig(val_a=100), SimplerConfig(val_a=999)],
         metadata={"help": "list of SimplerConfig"},
     )
-    empty_int_list: List[int] = field(default=None, metadata={"help": "int list without default value"})
-    empty_str_list: List[str] = field(default=None, metadata={"help": "str list without default value"})
-
-    # mylist_without_default: List[SimplerConfig] = field(default=None, metadata={'help': 'list of SimplerConfig'})  # NOT SUPPORTED YET!
 
     def check_values(
         self,
@@ -34,14 +30,14 @@ class SimpleConfig(Coqpit):
 
 
 def test_parse_argparse():
+    unknown_args = ["--coqpit.arg_does_not_exist", "111"]
     args = []
     args.extend(["--coqpit.val_a", "222"])
     args.extend(["--coqpit.val_b", "999"])
     args.extend(["--coqpit.val_c", "this is different"])
     args.extend(["--coqpit.mylist_with_default.0.val_a", "222"])
     args.extend(["--coqpit.mylist_with_default.1.val_a", "111"])
-    args.extend(["--coqpit.empty_int_list", "111", "222", "333"])
-    args.extend(["--coqpit.empty_str_list", "[foo=bar]", "[baz=qux]", "[blah,p=0.5,r=1~3]"])
+    args.extend(unknown_args)
 
     # initial config
     config = SimpleConfig()
@@ -53,8 +49,6 @@ def test_parse_argparse():
         val_b=999,
         val_c="this is different",
         mylist_with_default=[SimplerConfig(val_a=222), SimplerConfig(val_a=111)],
-        empty_int_list=[111, 222, 333],
-        empty_str_list=["[foo=bar]", "[baz=qux]", "[blah,p=0.5,r=1~3]"],
     )
 
     # create and init argparser with Coqpit
@@ -62,40 +56,8 @@ def test_parse_argparse():
     parser.print_help()
 
     # parse the argsparser
-    config.parse_args(args)
+    unknown = config.parse_known_args(args)
     config.pprint()
     # check the current config with the reference config
     assert config == config_ref
-
-
-def test_boolean_parse():
-    @dataclass
-    class Config(Coqpit):
-        boolean_without_default: bool = field()
-        boolean_with_default: bool = field(default=False)
-
-    args = [
-        "--coqpit.boolean_without_default", "false",
-        "--coqpit.boolean_with_default", "true",
-    ]
-
-    config_ref = Config(
-        boolean_without_default=False,
-        boolean_with_default=True,
-    )
-
-    config = Config(boolean_without_default=True)
-    config.parse_args(args)
-
-    assert config == config_ref
-
-    args = [
-        "--coqpit.boolean_without_default", "blargh",
-        "--coqpit.boolean_with_default", "true",
-    ]
-
-    try:
-        config.parse_args(args)
-        assert False, "should not reach this"
-    except: # pylint: disable=bare-except
-        pass
+    assert unknown == unknown_args

@@ -1,11 +1,13 @@
 import argparse
+import functools
 import json
 import os
+import operator
 from collections.abc import MutableMapping
 from dataclasses import MISSING as _MISSING
 from dataclasses import Field, asdict, dataclass, fields, is_dataclass
 from pprint import pprint
-from typing import Any, Generic, List, Type, TypeVar, Union, Dict, get_type_hints
+from typing import Any, Generic, List, Optional, Type, TypeVar, Union, Dict, get_type_hints
 
 T = TypeVar("T")
 MISSING: Any = "???"
@@ -19,14 +21,14 @@ NoDefaultVar = Union[_NoDefault[T], T]
 no_default: NoDefaultVar = _NoDefault()
 
 
-def is_common_type(arg_type: Any) -> bool:
-    """Check if the input type is one of the common types (int, float, str, bool).
+def is_primitive_type(arg_type: Any) -> bool:
+    """Check if the input type is one of `int, float, str, bool`.
 
     Args:
         arg_type (typing.Any): input type to check.
 
     Returns:
-        bool: True if input type is one of `int, float, str`.
+        bool: True if input type is one of `int, float, str, bool`.
     """
     if is_list(arg_type):
         return False
@@ -43,7 +45,12 @@ def is_list(arg_type: Any) -> bool:
         bool: True if input type is `list`
     """
     try:
-        return arg_type is list or arg_type is List or arg_type.__origin__ is list or arg_type.__origin__ is List
+        return (
+            arg_type is list or
+            arg_type is List or
+            arg_type.__origin__ is list or
+            arg_type.__origin__ is List
+        )
     except AttributeError:
         return False
 
@@ -273,9 +280,30 @@ def _deserialize(x: Any, field_type: Any) -> Any:
         return _deserialize_union(x, field_type)
     if issubclass(field_type, Serializable):
         return field_type().deserialize(x)
-    if is_common_type(field_type):
+    if is_primitive_type(field_type):
         return _deserialize_common_types(x, field_type)
     raise ValueError(f" [!] '{type(x)}' value type of '{x}' does not match '{field_type}' field type.")
+
+
+# Recursive setattr (supports dotted attr names)
+def rsetattr(obj, attr, val):
+    def _setitem(obj, attr, val):
+        return operator.setitem(obj, int(attr), val)
+
+    pre, _, post = attr.rpartition('.')
+    setfunc = _setitem if pre.isnumeric() else setattr
+    return setfunc(rgetattr(obj, pre) if pre else obj, post, val)
+
+
+# Recursive getattr (supports dotted attr names)
+def rgetattr(obj, attr, *args):
+    def _getitem(obj, attr):
+        return operator.getitem(obj, int(attr), *args)
+
+    def _getattr(obj, attr):
+        getfunc = _getitem if attr.isnumeric() else getattr
+        return getfunc(obj, attr, *args)
+    return functools.reduce(_getattr, [obj] + attr.split('.'))
 
 
 @dataclass
@@ -386,8 +414,8 @@ def _init_argparse(
     arg_prefix="",
     help_prefix="",
 ):
-    if field_value is None and not is_common_type(field_type):
-        # if the field type not int, flot or str, do not add it to the arguments
+    if field_value is None and not is_primitive_type(field_type) and not is_list(field_type):
+        # aggregate types (fields with a Coqpit subclass as type) are not supported without None
         return parser
     arg_prefix = field_name if arg_prefix == "" else f"{arg_prefix}.{field_name}"
     help_prefix = field_help if help_prefix == "" else f"{help_prefix} - {field_help}"
@@ -401,19 +429,20 @@ def _init_argparse(
         if len(field_type.__args__) > 1:
             raise ValueError(" [!] Coqpit does not support multi-type hinted 'List'")
         list_field_type = field_type.__args__[0]
-        if field_value is None:  # pylint: disable=no-else-raise
-            # if the list is None, assume insertion of a new value/object to the list[0]
-            # parser = _init_argparse(parser,
-            #                         '0.',
-            #                         list_field_type,
-            #                         list_field_type(),
-            #                         field_help='',
-            #                         help_prefix=f'insert a new {list_field_type} to index 0 - {help_prefix} - ',
-            #                         arg_prefix=f'{arg_prefix}.')
-            # TODO: it complicates parsing argparse
-            raise NotImplementedError(" [!] Please create an issue.")
+
+        if field_value is None:
+            if not is_primitive_type(list_field_type):
+                raise NotImplementedError(" [!] Empty list with non primitive inner type is currently not supported.")
+
+            # If the list's default value is None, the user can specify the entire list by passing multiple parameters
+            parser.add_argument(
+                f"--{arg_prefix}",
+                nargs='*',
+                type=list_field_type,
+                help=f"Coqpit Field: {help_prefix}",
+            )
         else:
-            # if a list is defined, just enable editing the values from argparse
+            # If a default value is defined, just enable editing the values from argparse
             # TODO: allow inserting a new value/obj to the end of the list.
             for idx, fv in enumerate(field_value):
                 parser = _init_argparse(
@@ -432,9 +461,20 @@ def _init_argparse(
         )
     elif issubclass(field_type, Serializable):
         return field_value.init_argparse(parser, arg_prefix=arg_prefix, help_prefix=help_prefix)
-    elif is_common_type(field_type):
+    elif isinstance(field_type(), bool):
+        def parse_bool(x):
+            if x not in ("true", "false"):
+                raise ValueError(f" [!] Value for boolean field must be either \"true\" or \"false\". Got \"{x}\".")
+            return x == "true"
+
         parser.add_argument(
-            f"--coqpit.{arg_prefix}",
+            f"--{arg_prefix}",
+            type=parse_bool,
+            default=field_value,
+        )
+    elif is_primitive_type(field_type):
+        parser.add_argument(
+            f"--{arg_prefix}",
             default=field_value,
             type=field_type,
             help=f"Coqpit Field: {help_prefix}",
@@ -608,56 +648,73 @@ class Coqpit(Serializable, MutableMapping):
         self = self.deserialize(dump_dict)  # pylint: disable=self-cls-assignment
         self.check_values()
 
-    def parse_args(self, args: argparse.Namespace) -> None:
+    def parse_args(self, args: Optional[Union[argparse.Namespace, List[str]]] = None, arg_prefix: str = "coqpit") -> None:
         """Update config values from argparse arguments with some meta-programming ✨.
 
         Args:
-            args (namespace): argeparse namespace as an output of ```argparse.parse_arguments()```.
-
-        Returns:
-            Coqpit: new config object with updated values.
+            args (namespace or list of str, optional): parsed argparse.Namespace or list of command line parameters. If unspecified will use a newly created parser with ```init_argparse()```.
+            arg_prefix: prefix to add to CLI parameters. Gets forwarded to ```init_argparse``` when ```args``` is not passed.
         """
-        if isinstance(args, argparse.Namespace):
-            args_dict = vars(args)
-        elif isinstance(args, list):
-            # overriding values from .parse_known_args()
-            args_dict = dict([*zip(args[::2], args[1::2])])
+        if not args:
+            # If args was not specified, parse from sys.argv
+            parser = self.init_argparse(arg_prefix=arg_prefix)
+            args = parser.parse_args()
+        if isinstance(args, list):
+            # If a list was passed in (eg. the second result of `parse_known_args`, run that through argparse first to get a parsed Namespace
+            parser = self.init_argparse(arg_prefix=arg_prefix)
+            args = parser.parse_args(args)
+
+        args_dict = vars(args)
+
         for k, v in args_dict.items():
-            if k.replace("--", "").startswith("coqpit") and "." in k:
-                _, k = k.split(".", 1)
-                names = k.split(".")
-                cmd = "self"
-                for name in names:
-                    if str.isnumeric(name):
-                        cmd += f"[{name}]"
-                    else:
-                        cmd += f".{name}"
-                try:
-                    exec(cmd)  # pylint: disable=exec-used
-                except (TypeError, AttributeError) as e:
-                    raise Exception(f" [!] '{k}' not exist to override from argparse.") from e
+            if k.startswith(f"{arg_prefix}."):
+                k = k[len(f"{arg_prefix}."):]
+            try:
+                rgetattr(self, k)
+            except (TypeError, AttributeError) as e:
+                raise Exception(f" [!] '{k}' not exist to override from argparse.") from e
 
-                if v is None:
-                    cmd += "= None"
-                elif isinstance(v, str):
-                    cmd += f"= '{v}'"
-                else:
-                    cmd += f"= {v}"
+            rsetattr(self, k, v)
 
-                exec(cmd)  # pylint: disable=exec-used
         self.check_values()
 
-    def init_argparse(self, parser: argparse.ArgumentParser, arg_prefix="", help_prefix="") -> argparse.ArgumentParser:
+    def parse_known_args(self, args: Optional[Union[argparse.Namespace, List[str]]] = None, arg_prefix: str = "coqpit") -> List[str]:
+        """Update config values from argparse arguments. Ignore unknown arguments.
+           This is analog to argparse.ArgumentParser.parse_known_args (vs parse_args).
+
+        Args:
+            args (namespace or list of str, optional): parsed argparse.Namespace or list of command line parameters. If unspecified will use a newly created parser with ```init_argparse()```.
+            arg_prefix: prefix to add to CLI parameters. Gets forwarded to ```init_argparse``` when ```args``` is not passed.
+
+        Returns:
+            List of unknown parameters.
+        """
+        if not args:
+            # If args was not specified, parse from sys.argv
+            parser = self.init_argparse(arg_prefix=arg_prefix)
+            args, unknown = parser.parse_known_args()
+        if isinstance(args, list):
+            # If a list was passed in (eg. the second result of `parse_known_args`, run that through argparse first to get a parsed Namespace
+            parser = self.init_argparse(arg_prefix=arg_prefix)
+            args, unknown = parser.parse_known_args(args)
+
+        self.parse_args(args)
+        return unknown
+
+
+    def init_argparse(self, parser: Optional[argparse.ArgumentParser] = None, arg_prefix="coqpit", help_prefix="") -> argparse.ArgumentParser:
         """Pass Coqpit fields as argparse arguments. This allows to edit values through command-line.
 
         Args:
-            parser (argparse.ArgumentParser): argparse.ArgumentParser instance.
-            arg_prefix (str, optional): Prefix to be used for the argument name. Defaults to ''.
+            parser (argparse.ArgumentParser, optional): argparse.ArgumentParser instance. If unspecified a new one will be created.
+            arg_prefix (str, optional): Prefix to be used for the argument name. Defaults to 'coqpit'.
             help_prefix (str, optional): Prefix to be used for the argument description. Defaults to ''.
 
         Returns:
             argparse.ArgumentParser: parser instance with the new arguments.
         """
+        if not parser:
+            parser = argparse.ArgumentParser()
         class_fields = fields(self)
         field_value = None
         for field in class_fields:

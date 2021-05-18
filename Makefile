@@ -19,3 +19,5 @@ lint:	## run pylint linter.
 
 install:	## install 👩‍✈️ Coqpit for development.
 	pip install -e .
+
+testlint: test lint
