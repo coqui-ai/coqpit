@@ -404,14 +404,7 @@ def _get_help(field):
 
 
 def _init_argparse(
-    parser,
-    field_name,
-    field_type,
-    field_value,
-    field_help,
-    arg_prefix="",
-    help_prefix="",
-    relaxed_parser=False
+    parser, field_name, field_type, field_value, field_help, arg_prefix="", help_prefix="", relaxed_parser=False
 ):
     if field_value is None and not is_primitive_type(field_type) and not is_list(field_type):
         # aggregate types (fields with a Coqpit subclass as type) are not supported without None
@@ -455,7 +448,7 @@ def _init_argparse(
                     field_help="",
                     help_prefix=f"{help_prefix} - ",
                     arg_prefix=f"{arg_prefix}",
-                    relaxed_parser=relaxed_parser
+                    relaxed_parser=relaxed_parser,
                 )
     elif is_union(field_type):
         # TODO: currently I don't know how to handle Union type on argparse
@@ -464,7 +457,9 @@ def _init_argparse(
                 " [!] Parsing `Union` field from argparse is not yet implemented. Please create an issue."
             )
     elif issubclass(field_type, Serializable):
-        return field_value.init_argparse(parser, arg_prefix=arg_prefix, help_prefix=help_prefix, relaxed_parser=relaxed_parser)
+        return field_value.init_argparse(
+            parser, arg_prefix=arg_prefix, help_prefix=help_prefix, relaxed_parser=relaxed_parser
+        )
     elif isinstance(field_type(), bool):
 
         def parse_bool(x):
@@ -687,7 +682,10 @@ class Coqpit(Serializable, MutableMapping):
         self.check_values()
 
     def parse_known_args(
-        self, args: Optional[Union[argparse.Namespace, List[str]]] = None, arg_prefix: str = "coqpit", relaxed_parser=False
+        self,
+        args: Optional[Union[argparse.Namespace, List[str]]] = None,
+        arg_prefix: str = "coqpit",
+        relaxed_parser=False,
     ) -> List[str]:
         """Update config values from argparse arguments. Ignore unknown arguments.
            This is analog to argparse.ArgumentParser.parse_known_args (vs parse_args).
@@ -713,7 +711,11 @@ class Coqpit(Serializable, MutableMapping):
         return unknown
 
     def init_argparse(
-        self, parser: Optional[argparse.ArgumentParser] = None, arg_prefix="coqpit", help_prefix="", relaxed_parser=False,
+        self,
+        parser: Optional[argparse.ArgumentParser] = None,
+        arg_prefix="coqpit",
+        help_prefix="",
+        relaxed_parser=False,
     ) -> argparse.ArgumentParser:
         """Pass Coqpit fields as argparse arguments. This allows to edit values through command-line.
 
@@ -735,14 +737,7 @@ class Coqpit(Serializable, MutableMapping):
             field_type = field.type
             field_help = _get_help(field)
             _init_argparse(
-                parser,
-                field.name,
-                field_type,
-                field_value,
-                field_help,
-                arg_prefix,
-                help_prefix,
-                relaxed_parser
+                parser, field.name, field_type, field_value, field_help, arg_prefix, help_prefix, relaxed_parser
             )
         return parser
 

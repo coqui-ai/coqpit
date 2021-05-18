@@ -1,36 +1,23 @@
 {
-    "val_a": 10,
-    "val_b": null,
-    "val_d": 10.21,
-    "val_c": "Coqpit is great!",
-    "vol_e": true,
-    "val_k": 1000,
-    "val_dict": {
-        "val_aa": 10,
-        "val_ss": "This is in a dict."
+    "val_d": 10,
+    "val_e": null,
+    "val_f": "Coqpit is great!",
+    "sc_list": null,
+    "sc": {
+        "val_a": 10,
+        "val_b": null,
+        "val_c": "Coqpit is great!"
     },
-    "val_listoflist": [
-        [
-            1,
-            2
-        ],
-        [
-            3,
-            4
-        ]
-    ],
-    "val_listofunion": [
-        [
-            1,
-            3
-        ],
-        [
-            1,
-            "Hi!"
-        ],
-        [
-            true,
-            false
-        ]
+    "union_var": [
+        {
+            "val_a": 10,
+            "val_b": null,
+            "val_c": "Coqpit is great!"
+        },
+        {
+            "val_a": 10,
+            "val_b": null,
+            "val_c": "Coqpit is great!"
+        }
     ]
 }
