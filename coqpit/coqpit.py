@@ -1,13 +1,13 @@
 import argparse
 import functools
 import json
-import os
 import operator
+import os
 from collections.abc import MutableMapping
 from dataclasses import MISSING as _MISSING
 from dataclasses import Field, asdict, dataclass, fields, is_dataclass
 from pprint import pprint
-from typing import Any, Generic, List, Optional, Type, TypeVar, Union, Dict, get_type_hints
+from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union, get_type_hints
 
 T = TypeVar("T")
 MISSING: Any = "???"
@@ -30,9 +30,10 @@ def is_primitive_type(arg_type: Any) -> bool:
     Returns:
         bool: True if input type is one of `int, float, str, bool`.
     """
-    if is_list(arg_type):
+    try:
+        return isinstance(arg_type(), (int, float, str, bool))
+    except (AttributeError, TypeError):
         return False
-    return isinstance(arg_type(), (int, float, str, bool))
 
 
 def is_list(arg_type: Any) -> bool:
@@ -45,12 +46,7 @@ def is_list(arg_type: Any) -> bool:
         bool: True if input type is `list`
     """
     try:
-        return (
-            arg_type is list or
-            arg_type is List or
-            arg_type.__origin__ is list or
-            arg_type.__origin__ is List
-        )
+        return arg_type is list or arg_type is List or arg_type.__origin__ is list or arg_type.__origin__ is List
     except AttributeError:
         return False
 
@@ -237,8 +233,8 @@ def _deserialize_union(x: Any, field_type: Type) -> Any:
     return x
 
 
-def _deserialize_common_types(x: Union[int, float, str, bool], field_type: Type) -> Union[int, float, str, bool]:
-    """Deserialize python commong types (float, int, str, bool).
+def _deserialize_primitive_types(x: Union[int, float, str, bool], field_type: Type) -> Union[int, float, str, bool]:
+    """Deserialize python primitive types (float, int, str, bool).
     It handles `inf` values exclusively and keeps them float against int fields since int does not support inf values.
 
     Args:
@@ -257,6 +253,7 @@ def _deserialize_common_types(x: Union[int, float, str, bool], field_type: Type)
             return x
         x = field_type(x)
         return x
+    # TODO: Raise an error when x does not match the types.
     return None
 
 
@@ -281,7 +278,7 @@ def _deserialize(x: Any, field_type: Any) -> Any:
     if issubclass(field_type, Serializable):
         return field_type().deserialize(x)
     if is_primitive_type(field_type):
-        return _deserialize_common_types(x, field_type)
+        return _deserialize_primitive_types(x, field_type)
     raise ValueError(f" [!] '{type(x)}' value type of '{x}' does not match '{field_type}' field type.")
 
 
@@ -290,7 +287,7 @@ def rsetattr(obj, attr, val):
     def _setitem(obj, attr, val):
         return operator.setitem(obj, int(attr), val)
 
-    pre, _, post = attr.rpartition('.')
+    pre, _, post = attr.rpartition(".")
     setfunc = _setitem if pre.isnumeric() else setattr
     return setfunc(rgetattr(obj, pre) if pre else obj, post, val)
 
@@ -303,7 +300,8 @@ def rgetattr(obj, attr, *args):
     def _getattr(obj, attr):
         getfunc = _getitem if attr.isnumeric() else getattr
         return getfunc(obj, attr, *args)
-    return functools.reduce(_getattr, [obj] + attr.split('.'))
+
+    return functools.reduce(_getattr, [obj] + attr.split("."))
 
 
 @dataclass
@@ -406,38 +404,35 @@ def _get_help(field):
 
 
 def _init_argparse(
-    parser,
-    field_name,
-    field_type,
-    field_value,
-    field_help,
-    arg_prefix="",
-    help_prefix="",
+    parser, field_name, field_type, field_value, field_help, arg_prefix="", help_prefix="", relaxed_parser=False
 ):
     if field_value is None and not is_primitive_type(field_type) and not is_list(field_type):
         # aggregate types (fields with a Coqpit subclass as type) are not supported without None
         return parser
     arg_prefix = field_name if arg_prefix == "" else f"{arg_prefix}.{field_name}"
     help_prefix = field_help if help_prefix == "" else f"{help_prefix} - {field_help}"
-    if isinstance(field_type, dict):  # pylint: disable=no-else-raise
-        # TODO: currently I don't need it
-        raise NotImplementedError(
-            " [!] Parsing `dict` field from argparse is not yet implemented. Please create an issue."
+    if is_dict(field_type):  # pylint: disable=no-else-raise
+        # NOTE: accept any string in json format as input to dict field.
+        parser.add_argument(
+            f"--{arg_prefix}",
+            dest=arg_prefix,
+            default=json.dumps(field_value) if field_value else None,
+            type=json.loads,
         )
     elif is_list(field_type):
         # TODO: We need a more clear help msg for lists.
-        if len(field_type.__args__) > 1:
+        if len(field_type.__args__) > 1 and not relaxed_parser:
             raise ValueError(" [!] Coqpit does not support multi-type hinted 'List'")
         list_field_type = field_type.__args__[0]
 
         if field_value is None:
-            if not is_primitive_type(list_field_type):
+            if not is_primitive_type(list_field_type) and not relaxed_parser:
                 raise NotImplementedError(" [!] Empty list with non primitive inner type is currently not supported.")
 
             # If the list's default value is None, the user can specify the entire list by passing multiple parameters
             parser.add_argument(
                 f"--{arg_prefix}",
-                nargs='*',
+                nargs="*",
                 type=list_field_type,
                 help=f"Coqpit Field: {help_prefix}",
             )
@@ -453,18 +448,23 @@ def _init_argparse(
                     field_help="",
                     help_prefix=f"{help_prefix} - ",
                     arg_prefix=f"{arg_prefix}",
+                    relaxed_parser=relaxed_parser,
                 )
     elif is_union(field_type):
         # TODO: currently I don't know how to handle Union type on argparse
-        raise NotImplementedError(
-            " [!] Parsing `Union` field from argparse is not yet implemented. Please create an issue."
-        )
+        if not relaxed_parser:
+            raise NotImplementedError(
+                " [!] Parsing `Union` field from argparse is not yet implemented. Please create an issue."
+            )
     elif issubclass(field_type, Serializable):
-        return field_value.init_argparse(parser, arg_prefix=arg_prefix, help_prefix=help_prefix)
+        return field_value.init_argparse(
+            parser, arg_prefix=arg_prefix, help_prefix=help_prefix, relaxed_parser=relaxed_parser
+        )
     elif isinstance(field_type(), bool):
+
         def parse_bool(x):
             if x not in ("true", "false"):
-                raise ValueError(f" [!] Value for boolean field must be either \"true\" or \"false\". Got \"{x}\".")
+                raise ValueError(f' [!] Value for boolean field must be either "true" or "false". Got "{x}".')
             return x == "true"
 
         parser.add_argument(
@@ -480,7 +480,8 @@ def _init_argparse(
             help=f"Coqpit Field: {help_prefix}",
         )
     else:
-        raise NotImplementedError(f" [!] '{field_type}' is not supported by arg_parser. Please file a bug report.")
+        if not relaxed_parser:
+            raise NotImplementedError(f" [!] '{field_type}' is not supported by arg_parser. Please file a bug report.")
     return parser
 
 
@@ -648,7 +649,9 @@ class Coqpit(Serializable, MutableMapping):
         self = self.deserialize(dump_dict)  # pylint: disable=self-cls-assignment
         self.check_values()
 
-    def parse_args(self, args: Optional[Union[argparse.Namespace, List[str]]] = None, arg_prefix: str = "coqpit") -> None:
+    def parse_args(
+        self, args: Optional[Union[argparse.Namespace, List[str]]] = None, arg_prefix: str = "coqpit"
+    ) -> None:
         """Update config values from argparse arguments with some meta-programming ✨.
 
         Args:
@@ -668,7 +671,7 @@ class Coqpit(Serializable, MutableMapping):
 
         for k, v in args_dict.items():
             if k.startswith(f"{arg_prefix}."):
-                k = k[len(f"{arg_prefix}."):]
+                k = k[len(f"{arg_prefix}.") :]
             try:
                 rgetattr(self, k)
             except (TypeError, AttributeError) as e:
@@ -678,37 +681,49 @@ class Coqpit(Serializable, MutableMapping):
 
         self.check_values()
 
-    def parse_known_args(self, args: Optional[Union[argparse.Namespace, List[str]]] = None, arg_prefix: str = "coqpit") -> List[str]:
+    def parse_known_args(
+        self,
+        args: Optional[Union[argparse.Namespace, List[str]]] = None,
+        arg_prefix: str = "coqpit",
+        relaxed_parser=False,
+    ) -> List[str]:
         """Update config values from argparse arguments. Ignore unknown arguments.
            This is analog to argparse.ArgumentParser.parse_known_args (vs parse_args).
 
         Args:
             args (namespace or list of str, optional): parsed argparse.Namespace or list of command line parameters. If unspecified will use a newly created parser with ```init_argparse()```.
             arg_prefix: prefix to add to CLI parameters. Gets forwarded to ```init_argparse``` when ```args``` is not passed.
+            relaxed_parser (bool, optional): If True, do not force all the fields to have compatible types with the argparser. Defaults to False.
 
         Returns:
             List of unknown parameters.
         """
         if not args:
             # If args was not specified, parse from sys.argv
-            parser = self.init_argparse(arg_prefix=arg_prefix)
+            parser = self.init_argparse(arg_prefix=arg_prefix, relaxed_parser=relaxed_parser)
             args, unknown = parser.parse_known_args()
         if isinstance(args, list):
             # If a list was passed in (eg. the second result of `parse_known_args`, run that through argparse first to get a parsed Namespace
-            parser = self.init_argparse(arg_prefix=arg_prefix)
+            parser = self.init_argparse(arg_prefix=arg_prefix, relaxed_parser=relaxed_parser)
             args, unknown = parser.parse_known_args(args)
 
         self.parse_args(args)
         return unknown
 
-
-    def init_argparse(self, parser: Optional[argparse.ArgumentParser] = None, arg_prefix="coqpit", help_prefix="") -> argparse.ArgumentParser:
+    def init_argparse(
+        self,
+        parser: Optional[argparse.ArgumentParser] = None,
+        arg_prefix="coqpit",
+        help_prefix="",
+        relaxed_parser=False,
+    ) -> argparse.ArgumentParser:
         """Pass Coqpit fields as argparse arguments. This allows to edit values through command-line.
 
         Args:
             parser (argparse.ArgumentParser, optional): argparse.ArgumentParser instance. If unspecified a new one will be created.
             arg_prefix (str, optional): Prefix to be used for the argument name. Defaults to 'coqpit'.
             help_prefix (str, optional): Prefix to be used for the argument description. Defaults to ''.
+            relaxed_parser (bool, optional): If True, do not force all the fields to have compatible types with the argparser. Defaults to False.
 
         Returns:
             argparse.ArgumentParser: parser instance with the new arguments.
@@ -722,13 +737,7 @@ class Coqpit(Serializable, MutableMapping):
             field_type = field.type
             field_help = _get_help(field)
             _init_argparse(
-                parser,
-                field.name,
-                field_type,
-                field_value,
-                field_help,
-                arg_prefix,
-                help_prefix,
+                parser, field.name, field_type, field_value, field_help, arg_prefix, help_prefix, relaxed_parser
             )
         return parser
 

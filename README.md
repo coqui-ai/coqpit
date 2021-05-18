@@ -44,6 +44,13 @@ What I need from a ML configuration library...
 
     You don't want to install a ton of libraries for just configuration management. If you install one, then it
     is better to be just native python.
+
+## 🚫 Limitations
+- `Union` type dataclass fields cannot be parsed from console arguments due to the type ambiguity.
+- `JSON` is the only supported serialization format, although the others can be easily integrated.
+- `List`type with multiple item type annotations are not supported. (e.g. `List[int, str]`).
+- `dict` fields are parsed from console arguments as JSON str without type checking. (e.g `--val_dict '{"a":10, "b":100}'`).
+
 ## 🔍 Examples
 
 ### 👉 Simple Coqpit
