@@ -285,3 +285,11 @@ if __name__ == '__main__':
     print(coqpitb.val_a)
     print(coqpitb.pprint())
 ```
+
+## Development
+
+Install the pre-commit hook to automatically check your commits for style and hinting issues:
+
+```bash
+$ python .pre-commit-2.12.1.pyz install
+```
