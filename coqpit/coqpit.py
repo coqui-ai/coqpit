@@ -425,6 +425,10 @@ def _init_argparse(
             raise ValueError(" [!] Coqpit does not support multi-type hinted 'List'")
         list_field_type = field_type.__args__[0]
 
+        # TODO: handle list of lists
+        if is_list(list_field_type) and relaxed_parser:
+            return parser
+
         if field_value is None:
             if not is_primitive_type(list_field_type) and not relaxed_parser:
                 raise NotImplementedError(" [!] Empty list with non primitive inner type is currently not supported.")
