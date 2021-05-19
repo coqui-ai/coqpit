@@ -818,7 +818,7 @@ def check_argument(
         ), f" [!] prequested fields {prerequest} for {name} are not defined."
     # check if the path exists
     if is_path:
-        assert os.path.exists(c[name]), " [!] {c[name]} not exist."
+        assert os.path.exists(c[name]), f' [!] path for {name} ("{c[name]}") does not exist.'
     # skip the rest if the alternative field is defined.
     if alternative in c.keys() and c[alternative] is not None:
         return
