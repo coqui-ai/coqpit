@@ -58,7 +58,7 @@ What I need from a ML configuration library...
 import os
 from dataclasses import asdict, dataclass, field
 
-from coqpit.coqpit import MISSING, Coqpit, check_argument
+from coqpit import MISSING, Coqpit, check_argument
 
 
 @dataclass
@@ -189,7 +189,7 @@ import os
 from dataclasses import asdict, dataclass, field
 from typing import List
 
-from coqpit.coqpit import Coqpit, check_argument
+from coqpit import Coqpit, check_argument
 import sys
 
 
@@ -265,7 +265,7 @@ if __name__ == '__main__':
 ```python
 import os
 from dataclasses import dataclass
-from coqpit.coqpit import Coqpit, check_argument
+from coqpit import Coqpit, check_argument
 
 
 @dataclass

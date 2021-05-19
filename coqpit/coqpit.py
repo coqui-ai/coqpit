@@ -404,7 +404,15 @@ def _get_help(field):
 
 
 def _init_argparse(
-    parser, field_name, field_type, field_value, field_help, arg_prefix="", help_prefix="", relaxed_parser=False
+    parser,
+    field_name,
+    field_type,
+    field_value,
+    field_default_factory,
+    field_help,
+    arg_prefix="",
+    help_prefix="",
+    relaxed_parser=False,
 ):
     if field_value is None and not is_primitive_type(field_type) and not is_list(field_type):
         # aggregate types (fields with a Coqpit subclass as type) are not supported without None
@@ -429,7 +437,7 @@ def _init_argparse(
         if is_list(list_field_type) and relaxed_parser:
             return parser
 
-        if field_value is None:
+        if field_value is None or field_default_factory is list:
             if not is_primitive_type(list_field_type) and not relaxed_parser:
                 raise NotImplementedError(" [!] Empty list with non primitive inner type is currently not supported.")
 
@@ -449,6 +457,7 @@ def _init_argparse(
                     str(idx),
                     list_field_type,
                     fv,
+                    field_default_factory,
                     field_help="",
                     help_prefix=f"{help_prefix} - ",
                     arg_prefix=f"{arg_prefix}",
@@ -739,9 +748,18 @@ class Coqpit(Serializable, MutableMapping):
         for field in class_fields:
             field_value = vars(self)[field.name]
             field_type = field.type
+            field_default_factory = field.default_factory
             field_help = _get_help(field)
             _init_argparse(
-                parser, field.name, field_type, field_value, field_help, arg_prefix, help_prefix, relaxed_parser
+                parser,
+                field.name,
+                field_type,
+                field_value,
+                field_default_factory,
+                field_help,
+                arg_prefix,
+                help_prefix,
+                relaxed_parser,
             )
         return parser
 
@@ -800,7 +818,7 @@ def check_argument(
         ), f" [!] prequested fields {prerequest} for {name} are not defined."
     # check if the path exists
     if is_path:
-        assert os.path.exists(c[name]), " [!] {c[name]} not exist."
+        assert os.path.exists(c[name]), f' [!] path for {name} ("{c[name]}") does not exist.'
     # skip the rest if the alternative field is defined.
     if alternative in c.keys() and c[alternative] is not None:
         return
