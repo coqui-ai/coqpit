@@ -34,4 +34,4 @@ jobs:
           password=${{ secrets.PYPI_TOKEN }}
           EOF
       - run: |
-          twine upload --repository testpypi dist/*.tar.gz
+          twine upload --repository pypi dist/*.tar.gz
