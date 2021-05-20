@@ -6,8 +6,9 @@ import setuptools.command.build_py
 import setuptools.command.develop
 from setuptools import find_packages, setup
 
-version = "0.0.7"
 cwd = os.path.dirname(os.path.abspath(__file__))
+with open(os.path.join(cwd, "VERSION")) as fin:
+    version = fin.read().strip()
 
 
 class build_py(setuptools.command.build_py.build_py):  # pylint: disable=too-many-ancestors
