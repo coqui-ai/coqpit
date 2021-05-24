@@ -19,6 +19,8 @@ class SimpleConfig(Coqpit):
         default_factory=lambda: [SimplerConfig(val_a=100), SimplerConfig(val_a=999)],
         metadata={"help": "list of SimplerConfig"},
     )
+    int_list: List[int] = field(default_factory=lambda: [1, 2, 3], metadata={"help": "int"})
+    str_list: List[str] = field(default_factory=lambda: ["veni", "vidi", "vici"], metadata={"help": "str"})
     empty_int_list: List[int] = field(default=None, metadata={"help": "int list without default value"})
     empty_str_list: List[str] = field(default=None, metadata={"help": "str list without default value"})
     list_with_default_factory: List[str] = field(
@@ -48,6 +50,8 @@ def test_parse_argparse():
     args.extend(["--coqpit.empty_int_list", "111", "222", "333"])
     args.extend(["--coqpit.empty_str_list", "[foo=bar]", "[baz=qux]", "[blah,p=0.5,r=1~3]"])
     args.extend(["--coqpit.list_with_default_factory", "blah"])
+    args.extend(["--coqpit.str_list.0", "neci"])
+    args.extend(["--coqpit.int_list.1", "4"])
 
     # initial config
     config = SimpleConfig()
@@ -62,6 +66,8 @@ def test_parse_argparse():
         mylist_with_default=[SimplerConfig(val_a=222), SimplerConfig(val_a=111)],
         empty_int_list=[111, 222, 333],
         empty_str_list=["[foo=bar]", "[baz=qux]", "[blah,p=0.5,r=1~3]"],
+        str_list=["neci", "vidi", "vici"],
+        int_list=[1, 4, 3],
         list_with_default_factory=["blah"],
     )
 
