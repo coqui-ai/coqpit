@@ -6,6 +6,7 @@ import os
 from collections.abc import MutableMapping
 from dataclasses import MISSING as _MISSING
 from dataclasses import Field, asdict, dataclass, fields, is_dataclass
+from pathlib import Path
 from pprint import pprint
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union, get_type_hints
 
@@ -97,6 +98,12 @@ def safe_issubclass(cls, classinfo) -> bool:
         return cls is classinfo
     else:
         return r
+
+
+def _coqpit_json_default(obj: Any) -> Any:
+    if isinstance(obj, Path):
+        return str(obj)
+    raise TypeError(f"Can't encode object of type {type(obj).__name__}")
 
 
 def _default_value(x: Field):
@@ -666,7 +673,7 @@ class Coqpit(Serializable, MutableMapping):
 
     def to_json(self) -> str:
         """Returns a JSON string representation."""
-        return json.dumps(asdict(self), indent=4)
+        return json.dumps(asdict(self), indent=4, default=_coqpit_json_default)
 
     def save_json(self, file_name: str) -> None:
         """Save Coqpit to a json file.
