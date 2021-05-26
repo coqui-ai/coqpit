@@ -389,6 +389,34 @@ class Serializable:
             setattr(self, k, v)
         return self
 
+    @classmethod
+    def deserialize_immutable(cls, data: dict) -> "Serializable":
+        """Parse input dictionary and desrialize its fields to a dataclass.
+
+        Returns:
+            Newly created deserialized object.
+        """
+        if not isinstance(data, dict):
+            raise ValueError()
+        data = data.copy()
+        init_kwargs = {}
+        for field in fields(cls):
+            # if field.name == 'dataset_config':
+            if field.name not in data:
+                if field.name in vars(cls):
+                    init_kwargs[field.name] = vars(cls)[field.name]
+                    continue
+                raise ValueError(f'Missing required field "{field.name}"')
+            value = data.get(field.name, _default_value(field))
+            if value is None:
+                init_kwargs[field.name] = value
+                continue
+            if value == MISSING:
+                raise ValueError("Deserialized with unknown value for {} in {}".format(field.name, cls.__name__))
+            value = _deserialize(value, field.type)
+            init_kwargs[field.name] = value
+        return cls(**init_kwargs)
+
 
 # ---------------------------------------------------------------------------- #
 #                        Argument Parsing from `argparse`                      #
@@ -631,6 +659,10 @@ class Coqpit(Serializable, MutableMapping):
 
     def from_dict(self, data: dict) -> None:
         self = self.deserialize(data)  # pylint: disable=self-cls-assignment
+
+    @classmethod
+    def new_from_dict(cls: Serializable, data: dict) -> "Coqpit":
+        return cls.deserialize_immutable(data)
 
     def to_json(self) -> str:
         """Returns a JSON string representation."""
