@@ -382,8 +382,10 @@ class Serializable:
         for field in fields(self):
             # if field.name == 'dataset_config':
             if field.name not in data:
-                init_kwargs[field.name] = vars(self)[field.name]
-                continue
+                if field.name in vars(self):
+                    init_kwargs[field.name] = vars(self)[field.name]
+                    continue
+                raise ValueError(f' [!] Missing required field "{field.name}"')
             value = data.get(field.name, _default_value(field))
             if value is None:
                 init_kwargs[field.name] = value
@@ -413,7 +415,7 @@ class Serializable:
                 if field.name in vars(cls):
                     init_kwargs[field.name] = vars(cls)[field.name]
                     continue
-                raise ValueError(f'Missing required field "{field.name}"')
+                raise ValueError(f' [!] Missing required field "{field.name}"')
             value = data.get(field.name, _default_value(field))
             if value is None:
                 init_kwargs[field.name] = value

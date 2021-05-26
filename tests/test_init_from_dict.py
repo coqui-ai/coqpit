@@ -45,4 +45,4 @@ def test_new_from_dict():
     try:
         WithRequired.new_from_dict({})
     except ValueError as e:
-        assert e.args[0].startswith("Missing required field")
+        assert "Missing required field" in e.args[0]
