@@ -276,7 +276,7 @@ def _deserialize(x: Any, field_type: Any) -> Any:
     if is_union(field_type):
         return _deserialize_union(x, field_type)
     if issubclass(field_type, Serializable):
-        return field_type().deserialize(x)
+        return field_type.deserialize_immutable(x)
     if is_primitive_type(field_type):
         return _deserialize_primitive_types(x, field_type)
     raise ValueError(f" [!] '{type(x)}' value type of '{x}' does not match '{field_type}' field type.")
