@@ -6,6 +6,7 @@ import os
 from collections.abc import MutableMapping
 from dataclasses import MISSING as _MISSING
 from dataclasses import Field, asdict, dataclass, fields, is_dataclass
+from pathlib import Path
 from pprint import pprint
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union, get_type_hints
 
@@ -97,6 +98,12 @@ def safe_issubclass(cls, classinfo) -> bool:
         return cls is classinfo
     else:
         return r
+
+
+def _coqpit_json_default(obj: Any) -> Any:
+    if isinstance(obj, Path):
+        return str(obj)
+    raise TypeError(f"Can't encode object of type {type(obj).__name__}")
 
 
 def _default_value(x: Field):
@@ -276,7 +283,7 @@ def _deserialize(x: Any, field_type: Any) -> Any:
     if is_union(field_type):
         return _deserialize_union(x, field_type)
     if issubclass(field_type, Serializable):
-        return field_type().deserialize(x)
+        return field_type.deserialize_immutable(x)
     if is_primitive_type(field_type):
         return _deserialize_primitive_types(x, field_type)
     raise ValueError(f" [!] '{type(x)}' value type of '{x}' does not match '{field_type}' field type.")
@@ -376,8 +383,10 @@ class Serializable:
         for field in fields(self):
             # if field.name == 'dataset_config':
             if field.name not in data:
-                init_kwargs[field.name] = vars(self)[field.name]
-                continue
+                if field.name in vars(self):
+                    init_kwargs[field.name] = vars(self)[field.name]
+                    continue
+                raise ValueError(f' [!] Missing required field "{field.name}"')
             value = data.get(field.name, _default_value(field))
             if value is None:
                 init_kwargs[field.name] = value
@@ -389,6 +398,34 @@ class Serializable:
         for k, v in init_kwargs.items():
             setattr(self, k, v)
         return self
+
+    @classmethod
+    def deserialize_immutable(cls, data: dict) -> "Serializable":
+        """Parse input dictionary and desrialize its fields to a dataclass.
+
+        Returns:
+            Newly created deserialized object.
+        """
+        if not isinstance(data, dict):
+            raise ValueError()
+        data = data.copy()
+        init_kwargs = {}
+        for field in fields(cls):
+            # if field.name == 'dataset_config':
+            if field.name not in data:
+                if field.name in vars(cls):
+                    init_kwargs[field.name] = vars(cls)[field.name]
+                    continue
+                raise ValueError(f' [!] Missing required field "{field.name}"')
+            value = data.get(field.name, _default_value(field))
+            if value is None:
+                init_kwargs[field.name] = value
+                continue
+            if value == MISSING:
+                raise ValueError("Deserialized with unknown value for {} in {}".format(field.name, cls.__name__))
+            value = _deserialize(value, field.type)
+            init_kwargs[field.name] = value
+        return cls(**init_kwargs)
 
 
 # ---------------------------------------------------------------------------- #
@@ -633,9 +670,13 @@ class Coqpit(Serializable, MutableMapping):
     def from_dict(self, data: dict) -> None:
         self = self.deserialize(data)  # pylint: disable=self-cls-assignment
 
+    @classmethod
+    def new_from_dict(cls: Serializable, data: dict) -> "Coqpit":
+        return cls.deserialize_immutable(data)
+
     def to_json(self) -> str:
         """Returns a JSON string representation."""
-        return json.dumps(asdict(self), indent=4)
+        return json.dumps(asdict(self), indent=4, default=_coqpit_json_default)
 
     def save_json(self, file_name: str) -> None:
         """Save Coqpit to a json file.
