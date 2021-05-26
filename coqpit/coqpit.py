@@ -288,7 +288,8 @@ def rsetattr(obj, attr, val):
         return operator.setitem(obj, int(attr), val)
 
     pre, _, post = attr.rpartition(".")
-    setfunc = _setitem if pre.isnumeric() else setattr
+    setfunc = _setitem if post.isnumeric() else setattr
+
     return setfunc(rgetattr(obj, pre) if pre else obj, post, val)
 
 
