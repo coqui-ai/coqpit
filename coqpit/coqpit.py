@@ -161,6 +161,8 @@ def _serialize(x):
     Returns:
         object: serialized object.
     """
+    if isinstance(x, Path):
+        return str(x)
     if isinstance(x, dict):
         return {k: _serialize(v) for k, v in x.items()}
     if isinstance(x, list):
