@@ -50,6 +50,7 @@ What I need from a ML configuration library...
 - `JSON` is the only supported serialization format, although the others can be easily integrated.
 - `List`type with multiple item type annotations are not supported. (e.g. `List[int, str]`).
 - `dict` fields are parsed from console arguments as JSON str without type checking. (e.g `--val_dict '{"a":10, "b":100}'`).
+- `MISSING` fields cannot be avoided when parsing console arguments.
 
 ## 🔍 Examples
 
