@@ -5,7 +5,7 @@ import operator
 import os
 from collections.abc import MutableMapping
 from dataclasses import MISSING as _MISSING
-from dataclasses import Field, asdict, dataclass, fields, is_dataclass
+from dataclasses import Field, asdict, dataclass, fields, is_dataclass, replace
 from pathlib import Path
 from pprint import pprint
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union, get_type_hints
@@ -558,20 +558,8 @@ class Coqpit(Serializable, MutableMapping):
         at the initialization when no attribute has been defined."""
         return "_initialized" in vars(self) and self._initialized
 
-    def __setattr__(self, name: str, value: Any) -> None:
-        if self._is_initialized() and issubclass(type(value), Coqpit):
-            self.__fields__[name].type = type(value)
-        return super().__setattr__(name, value)
-
-    def __set_fields(self):
-        """Create a list of fields defined at the object initialization"""
-        self.__fields__ = {}  # pylint: disable=attribute-defined-outside-init
-        for field in fields(self):
-            self.__fields__[field.name] = field
-
     def __post_init__(self):
         self._initialized = True
-        self.__set_fields()
         try:
             self.check_values()
         except AttributeError:
@@ -583,7 +571,7 @@ class Coqpit(Serializable, MutableMapping):
         return iter(asdict(self))
 
     def __len__(self):
-        return len(self.__fields__)
+        return len(fields(self))
 
     def __setitem__(self, arg: str, value: Any):
         setattr(self, arg, value)
@@ -644,6 +632,9 @@ class Coqpit(Serializable, MutableMapping):
 
     def has(self, arg: str) -> bool:
         return arg in vars(self)
+
+    def copy(self):
+        return replace(self)
 
     def update(self, new: dict, allow_new=False) -> None:
         """Update Coqpit fields by the input ```dict```.
