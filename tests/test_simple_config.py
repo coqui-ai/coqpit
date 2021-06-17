@@ -56,6 +56,7 @@ def test_simple_config():
     print(dict(**config))
 
     # value assignment by mapping
+    # TODO: MAYBE this should raise an errorby the value check.
     config["val_a"] = -999
     print(config["val_a"])
     assert config.val_a == -999
