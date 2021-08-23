@@ -117,3 +117,19 @@ def test_boolean_parse():
         assert False, "should not reach this"
     except:  # pylint: disable=bare-except
         pass
+
+
+@dataclass
+class ArgparseWithRequiredField(Coqpit):
+    val_a: int
+
+
+def test_argparse_with_required_field():
+    args = ["--coqpit.val_a", "10"]
+    try:
+        c = ArgparseWithRequiredField()
+        c.parse_args(args)
+        assert False
+    except TypeError:
+        # __init__ should fail due to missing val_a
+        pass
