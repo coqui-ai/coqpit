@@ -127,7 +127,7 @@ class ArgparseWithRequiredField(Coqpit):
 def test_argparse_with_required_field():
     args = ["--coqpit.val_a", "10"]
     try:
-        c = ArgparseWithRequiredField()
+        c = ArgparseWithRequiredField()  # pylint: disable=no-value-for-parameter
         c.parse_args(args)
         assert False
     except TypeError:

@@ -610,9 +610,9 @@ class Coqpit(Serializable, MutableMapping):
     def __contains__(self, arg: str):
         return arg in self.to_dict()
 
-    def get(self, arg: str, default: Any = None):
-        if self.has(arg):
-            return asdict(self)[arg]
+    def get(self, key: str, default: Any = None):
+        if self.has(key):
+            return asdict(self)[key]
         return default
 
     def items(self):
