@@ -123,3 +123,5 @@ version.py
 
 # jupyter dummy files
 core
+
+tests/example_config.json
