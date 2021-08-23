@@ -133,3 +133,6 @@ def test_argparse_with_required_field():
     except TypeError:
         # __init__ should fail due to missing val_a
         pass
+
+    c = ArgparseWithRequiredField.init_from_argparse(args)
+    assert c.val_a == 10
