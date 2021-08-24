@@ -61,11 +61,11 @@ def test_serizalization_fileobject():
     file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_serialization_file.json")
 
     ref_config = Reference()
-    with open(file_path, "w") as f:
+    with open(file_path, "w", encoding="utf-8") as f:
         ref_config.save_json(f)
 
     new_config = Group()
-    with open(file_path, "r") as f:
+    with open(file_path, "w", encoding="utf-8") as f:
         new_config.load_json(f)
     new_config.pprint()
 
