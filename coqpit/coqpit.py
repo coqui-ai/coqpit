@@ -53,13 +53,13 @@ def is_list(arg_type: Any) -> bool:
 
 
 def is_dict(arg_type: Any) -> bool:
-    """Check if the input type is `list`
+    """Check if the input type is `dict`
 
     Args:
         arg_type (typing.Any): input type.
 
     Returns:
-        bool: True if input type is `list`
+        bool: True if input type is `dict`
     """
     try:
         return arg_type is dict or arg_type.__origin__ is dict
@@ -312,6 +312,20 @@ def rgetattr(obj, attr, *args):
         return getfunc(obj, attr, *args)
 
     return functools.reduce(_getattr, [obj] + attr.split("."))
+
+
+# Recursive setitem (supports dotted attr names)
+def rsetitem(obj, attr, val):
+    pre, _, post = attr.rpartition(".")
+    return operator.setitem(rgetitem(obj, pre) if pre else obj, post, val)
+
+
+# Recursive getitem (supports dotted attr names)
+def rgetitem(obj, attr, *args):
+    def _getitem(obj, attr):
+        return operator.getitem(obj, int(attr) if attr.isnumeric() else attr, *args)
+
+    return functools.reduce(_getitem, [obj] + attr.split("."))
 
 
 @dataclass
@@ -728,16 +742,35 @@ class Coqpit(Serializable, MutableMapping):
             parser = cls.init_argparse(arg_prefix=arg_prefix)
             args = parser.parse_args(args)
 
+        # Handle list and object attributes with defaults, which can be modified
+        # directly (eg. --coqpit.list.0.val_a 1), by constructing real objects
+        # from defaults and passing those to `cls.__init__`
+        args_with_lists_processed = {}
+        class_fields = fields(cls)
+        for field in class_fields:
+            has_default = False
+            default = None
+            field_default = field.default if field.default is not _MISSING else None
+            field_default_factory = field.default_factory if field.default_factory is not _MISSING else None
+            if field_default:
+                has_default = True
+                default = field_default
+            elif field_default_factory:
+                has_default = True
+                default = field_default_factory()
+
+            if has_default and (not is_primitive_type(field.type) or is_list(field.type)):
+                args_with_lists_processed[field.name] = default
+
         args_dict = vars(args)
+        for k, v in args_dict.items():
+            # Remove argparse prefix (eg. "--coqpit." if present)
+            if k.startswith(f"{arg_prefix}."):
+                k = k[len(f"{arg_prefix}.") :]
 
-        def remove_prefix_maybe(key):
-            if key.startswith(f"{arg_prefix}."):
-                return key[len(f"{arg_prefix}.") :]
-            return key
+            rsetitem(args_with_lists_processed, k, v)
 
-        args_without_prefix = {remove_prefix_maybe(key): value for key, value in args_dict.items()}
-
-        return cls(**args_without_prefix)
+        return cls(**args_with_lists_processed)
 
     def parse_args(
         self, args: Optional[Union[argparse.Namespace, List[str]]] = None, arg_prefix: str = "coqpit"
