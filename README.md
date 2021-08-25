@@ -201,10 +201,11 @@ class SimplerConfig(Coqpit):
 
 @dataclass
 class SimpleConfig(Coqpit):
+    val_req: str # required field
     val_a: int = field(default=10,
                        metadata={'help': 'this is val_a of SimpleConfig'})
     val_b: int = field(default=None, metadata={'help': 'this is val_b'})
-    val_c: str = "Coqpit is great!"
+    nested_config: SimplerConfig = SimplerConfig()
     mylist_with_default: List[SimplerConfig] = field(
         default_factory=lambda:
         [SimplerConfig(val_a=100),
@@ -223,42 +224,35 @@ class SimpleConfig(Coqpit):
                        min_val=128,
                        max_val=4058,
                        allow_none=True)
-        check_argument('val_c', c, restricted=True)
+        check_argument('val_req', c, restricted=True)
 
 
 def main():
-    # initial config
-    config = SimpleConfig()
-    print(config.pprint())
-
-    # reference config that we like to match with the config above
-    config_ref = SimpleConfig(val_a=222,
+    # reference config that we like to match with the one parsed from argparse
+    config_ref = SimpleConfig(val_req='this is different',
+                              val_a=222,
                               val_b=999,
-                              val_c='this is different',
+                              nested_config=SimplerConfig(val_a=333),
                               mylist_with_default=[
                                   SimplerConfig(val_a=222),
                                   SimplerConfig(val_a=111)
                               ])
 
-    # create and init argparser with Coqpit
-    parser = argparse.ArgumentParser()
-    parser = config.init_argparse(parser)
-    parser.print_help()
-    args = parser.parse_args()
+    # create new config object from CLI inputs
+    parsed = SimpleConfig.init_from_argparse()
+    parsed.pprint()
 
-    # parse the argsparser
-    config.parse_args(args)
-    config.pprint()
-    # check the current config with the reference config
-    assert config == config_ref
+    # check the parsed config with the reference config
+    assert parsed == config_ref
 
 
 if __name__ == '__main__':
-    sys.argv.extend(['--val_a', '222'])
-    sys.argv.extend(['--val_b', '999'])
-    sys.argv.extend(['--val_c', 'this is different'])
-    sys.argv.extend(['--mylist_with_default.0.val_a', '222'])
-    sys.argv.extend(['--mylist_with_default.1.val_a', '111'])
+    sys.argv.extend(['--coqpit.val_req', 'this is different'])
+    sys.argv.extend(['--coqpit.val_a', '222'])
+    sys.argv.extend(['--coqpit.val_b', '999'])
+    sys.argv.extend(['--coqpit.nested_config.val_a', '333'])
+    sys.argv.extend(['--coqpit.mylist_with_default.0.val_a', '222'])
+    sys.argv.extend(['--coqpit.mylist_with_default.1.val_a', '111'])
     main()
 ```
 

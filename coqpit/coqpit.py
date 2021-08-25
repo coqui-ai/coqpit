@@ -53,13 +53,13 @@ def is_list(arg_type: Any) -> bool:
 
 
 def is_dict(arg_type: Any) -> bool:
-    """Check if the input type is `list`
+    """Check if the input type is `dict`
 
     Args:
         arg_type (typing.Any): input type.
 
     Returns:
-        bool: True if input type is `list`
+        bool: True if input type is `dict`
     """
     try:
         return arg_type is dict or arg_type.__origin__ is dict
@@ -314,6 +314,20 @@ def rgetattr(obj, attr, *args):
     return functools.reduce(_getattr, [obj] + attr.split("."))
 
 
+# Recursive setitem (supports dotted attr names)
+def rsetitem(obj, attr, val):
+    pre, _, post = attr.rpartition(".")
+    return operator.setitem(rgetitem(obj, pre) if pre else obj, post, val)
+
+
+# Recursive getitem (supports dotted attr names)
+def rgetitem(obj, attr, *args):
+    def _getitem(obj, attr):
+        return operator.getitem(obj, int(attr) if attr.isnumeric() else attr, *args)
+
+    return functools.reduce(_getitem, [obj] + attr.split("."))
+
+
 @dataclass
 class Serializable:
     """Gives serialization ability to any inheriting dataclass."""
@@ -447,14 +461,23 @@ def _init_argparse(
     parser,
     field_name,
     field_type,
-    field_value,
+    field_default,
     field_default_factory,
     field_help,
     arg_prefix="",
     help_prefix="",
     relaxed_parser=False,
 ):
-    if field_value is None and not is_primitive_type(field_type) and not is_list(field_type):
+    has_default = False
+    default = None
+    if field_default:
+        has_default = True
+        default = field_default
+    elif field_default_factory not in (None, _MISSING):
+        has_default = True
+        default = field_default_factory()
+
+    if not has_default and not is_primitive_type(field_type) and not is_list(field_type):
         # aggregate types (fields with a Coqpit subclass as type) are not supported without None
         return parser
     arg_prefix = field_name if arg_prefix == "" else f"{arg_prefix}.{field_name}"
@@ -464,7 +487,7 @@ def _init_argparse(
         parser.add_argument(
             f"--{arg_prefix}",
             dest=arg_prefix,
-            default=json.dumps(field_value) if field_value else None,
+            default=json.dumps(field_default) if field_default else None,
             type=json.loads,
         )
     elif is_list(field_type):
@@ -477,8 +500,11 @@ def _init_argparse(
         if is_list(list_field_type) and relaxed_parser:
             return parser
 
-        if field_value is None or field_default_factory is list:
+        if not has_default or field_default_factory is list:
             if not is_primitive_type(list_field_type) and not relaxed_parser:
+                print(
+                    f"AAAAAAA field_name:{field_name}, field_default:{field_default}, field_default_factory:{field_default_factory}, list_field_type:{list_field_type}"
+                )
                 raise NotImplementedError(" [!] Empty list with non primitive inner type is currently not supported.")
 
             # If the list's default value is None, the user can specify the entire list by passing multiple parameters
@@ -491,7 +517,7 @@ def _init_argparse(
         else:
             # If a default value is defined, just enable editing the values from argparse
             # TODO: allow inserting a new value/obj to the end of the list.
-            for idx, fv in enumerate(field_value):
+            for idx, fv in enumerate(default):
                 parser = _init_argparse(
                     parser,
                     str(idx),
@@ -510,7 +536,7 @@ def _init_argparse(
                 " [!] Parsing `Union` field from argparse is not yet implemented. Please create an issue."
             )
     elif issubclass(field_type, Serializable):
-        return field_value.init_argparse(
+        return field_default.init_argparse(
             parser, arg_prefix=arg_prefix, help_prefix=help_prefix, relaxed_parser=relaxed_parser
         )
     elif isinstance(field_type(), bool):
@@ -523,12 +549,12 @@ def _init_argparse(
         parser.add_argument(
             f"--{arg_prefix}",
             type=parse_bool,
-            default=field_value,
+            default=field_default,
         )
     elif is_primitive_type(field_type):
         parser.add_argument(
             f"--{arg_prefix}",
-            default=field_value,
+            default=field_default,
             type=field_type,
             help=f"Coqpit Field: {help_prefix}",
         )
@@ -598,9 +624,9 @@ class Coqpit(Serializable, MutableMapping):
     def __contains__(self, arg: str):
         return arg in self.to_dict()
 
-    def get(self, arg: str, default: Any = None):
-        if self.has(arg):
-            return asdict(self)[arg]
+    def get(self, key: str, default: Any = None):
+        if self.has(key):
+            return asdict(self)[key]
         return default
 
     def items(self):
@@ -697,6 +723,55 @@ class Coqpit(Serializable, MutableMapping):
         self = self.deserialize(dump_dict)  # pylint: disable=self-cls-assignment
         self.check_values()
 
+    @classmethod
+    def init_from_argparse(
+        cls, args: Optional[Union[argparse.Namespace, List[str]]] = None, arg_prefix: str = "coqpit"
+    ) -> "Coqpit":
+        """Create a new Coqpit instance from argparse input.
+
+        Args:
+            args (namespace or list of str, optional): parsed argparse.Namespace or list of command line parameters. If unspecified will use a newly created parser with ```init_argparse()```.
+            arg_prefix: prefix to add to CLI parameters. Gets forwarded to ```init_argparse``` when ```args``` is not passed.
+        """
+        if not args:
+            # If args was not specified, parse from sys.argv
+            parser = cls.init_argparse(arg_prefix=arg_prefix)
+            args = parser.parse_args()
+        if isinstance(args, list):
+            # If a list was passed in (eg. the second result of `parse_known_args`, run that through argparse first to get a parsed Namespace
+            parser = cls.init_argparse(arg_prefix=arg_prefix)
+            args = parser.parse_args(args)
+
+        # Handle list and object attributes with defaults, which can be modified
+        # directly (eg. --coqpit.list.0.val_a 1), by constructing real objects
+        # from defaults and passing those to `cls.__init__`
+        args_with_lists_processed = {}
+        class_fields = fields(cls)
+        for field in class_fields:
+            has_default = False
+            default = None
+            field_default = field.default if field.default is not _MISSING else None
+            field_default_factory = field.default_factory if field.default_factory is not _MISSING else None
+            if field_default:
+                has_default = True
+                default = field_default
+            elif field_default_factory:
+                has_default = True
+                default = field_default_factory()
+
+            if has_default and (not is_primitive_type(field.type) or is_list(field.type)):
+                args_with_lists_processed[field.name] = default
+
+        args_dict = vars(args)
+        for k, v in args_dict.items():
+            # Remove argparse prefix (eg. "--coqpit." if present)
+            if k.startswith(f"{arg_prefix}."):
+                k = k[len(f"{arg_prefix}.") :]
+
+            rsetitem(args_with_lists_processed, k, v)
+
+        return cls(**args_with_lists_processed)
+
     def parse_args(
         self, args: Optional[Union[argparse.Namespace, List[str]]] = None, arg_prefix: str = "coqpit"
     ) -> None:
@@ -758,8 +833,9 @@ class Coqpit(Serializable, MutableMapping):
         self.parse_args(args)
         return unknown
 
+    @classmethod
     def init_argparse(
-        self,
+        cls,
         parser: Optional[argparse.ArgumentParser] = None,
         arg_prefix="coqpit",
         help_prefix="",
@@ -778,10 +854,9 @@ class Coqpit(Serializable, MutableMapping):
         """
         if not parser:
             parser = argparse.ArgumentParser()
-        class_fields = fields(self)
-        field_value = None
+        class_fields = fields(cls)
         for field in class_fields:
-            field_value = vars(self)[field.name]
+            field_default = field.default if field.default is not _MISSING else None
             field_type = field.type
             field_default_factory = field.default_factory
             field_help = _get_help(field)
@@ -789,7 +864,7 @@ class Coqpit(Serializable, MutableMapping):
                 parser,
                 field.name,
                 field_type,
-                field_value,
+                field_default,
                 field_default_factory,
                 field_help,
                 arg_prefix,

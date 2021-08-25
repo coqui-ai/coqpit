@@ -117,3 +117,80 @@ def test_boolean_parse():
         assert False, "should not reach this"
     except:  # pylint: disable=bare-except
         pass
+
+
+@dataclass
+class ArgparseWithRequiredField(Coqpit):
+    val_a: int
+
+
+def test_argparse_with_required_field():
+    args = ["--coqpit.val_a", "10"]
+    try:
+        c = ArgparseWithRequiredField()  # pylint: disable=no-value-for-parameter
+        c.parse_args(args)
+        assert False
+    except TypeError:
+        # __init__ should fail due to missing val_a
+        pass
+
+    c = ArgparseWithRequiredField.init_from_argparse(args)
+    assert c.val_a == 10
+
+
+def test_init_argparse_list_and_nested():
+    @dataclass
+    class SimplerConfig2(Coqpit):
+        val_a: int = field(default=None, metadata={"help": "this is val_a"})
+
+    @dataclass
+    class SimpleConfig2(Coqpit):
+        val_req: str  # required field
+        val_a: int = field(default=10, metadata={"help": "this is val_a of SimpleConfig2"})
+        val_b: int = field(default=None, metadata={"help": "this is val_b"})
+        nested_config: SimplerConfig2 = SimplerConfig2()
+        mylist_with_default: List[SimplerConfig2] = field(
+            default_factory=lambda: [SimplerConfig2(val_a=100), SimplerConfig2(val_a=999)],
+            metadata={"help": "list of SimplerConfig2"},
+        )
+
+        # mylist_without_default: List[SimplerConfig2] = field(default=None, metadata={'help': 'list of SimplerConfig2'})  # NOT SUPPORTED YET!
+
+        def check_values(
+            self,
+        ):
+            """Check config fields"""
+            c = asdict(self)
+            check_argument("val_a", c, restricted=True, min_val=10, max_val=2056)
+            check_argument("val_b", c, restricted=True, min_val=128, max_val=4058, allow_none=True)
+            check_argument("val_req", c, restricted=True)
+
+    # reference config that we like to match with the one parsed from argparse
+    config_ref = SimpleConfig2(
+        val_req="this is different",
+        val_a=222,
+        val_b=999,
+        nested_config=SimplerConfig2(val_a=333),
+        mylist_with_default=[SimplerConfig2(val_a=222), SimplerConfig2(val_a=111)],
+    )
+
+    # create new config object from CLI inputs
+    args = [
+        "--coqpit.val_req",
+        "this is different",
+        "--coqpit.val_a",
+        "222",
+        "--coqpit.val_b",
+        "999",
+        "--coqpit.nested_config.val_a",
+        "333",
+        "--coqpit.mylist_with_default.0.val_a",
+        "222",
+        "--coqpit.mylist_with_default.1.val_a",
+        "111",
+    ]
+    parsed = SimpleConfig2.init_from_argparse(args)
+    parsed.pprint()
+
+    # check the parsed config with the reference config
+    assert parsed == config_ref
