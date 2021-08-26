@@ -736,11 +736,11 @@ class Coqpit(Serializable, MutableMapping):
         if not args:
             # If args was not specified, parse from sys.argv
             parser = cls.init_argparse(cls, arg_prefix=arg_prefix)
-            args = parser.parse_args()
+            args = parser.parse_args()  # pylint: disable=E1120, E1111
         if isinstance(args, list):
             # If a list was passed in (eg. the second result of `parse_known_args`, run that through argparse first to get a parsed Namespace
             parser = cls.init_argparse(cls, arg_prefix=arg_prefix)
-            args = parser.parse_args(args)
+            args = parser.parse_args(args) # pylint: disable=E1120, E1111
 
         # Handle list and object attributes with defaults, which can be modified
         # directly (eg. --coqpit.list.0.val_a 1), by constructing real objects
