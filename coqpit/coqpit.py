@@ -536,7 +536,7 @@ def _init_argparse(
                 " [!] Parsing `Union` field from argparse is not yet implemented. Please create an issue."
             )
     elif issubclass(field_type, Serializable):
-        return field_default.init_argparse(
+        return default.init_argparse(
             parser, arg_prefix=arg_prefix, help_prefix=help_prefix, relaxed_parser=relaxed_parser
         )
     elif isinstance(field_type(), bool):
