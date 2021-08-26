@@ -61,3 +61,40 @@ def test_parse_argparse():
     # check the current config with the reference config
     assert config == config_ref
     assert unknown == unknown_args
+
+
+def test_parse_edited_argparse():
+    """calling `parse_known_argparse` after some modifications in the config values.
+    `parse_known_argparse` should keep the modified values if not defined in argv"""
+
+    unknown_args = ["--coqpit.arg_does_not_exist", "111"]
+    args = []
+    args.extend(["--coqpit.mylist_with_default.1.val_a", "111"])
+    args.extend(unknown_args)
+
+    # initial config with modified values
+    config = SimpleConfig()
+    config.val_a = 333
+    config.val_b = 444
+    config.val_c = "this is different"
+    config.mylist_with_default[0].val_a = 777
+    print(config.pprint())
+
+    # reference config that we like to match with the config above
+    config_ref = SimpleConfig(
+        val_a=333,
+        val_b=444,
+        val_c="this is different",
+        mylist_with_default=[SimplerConfig(val_a=777), SimplerConfig(val_a=111)],
+    )
+
+    # create and init argparser with Coqpit
+    parser = config.init_argparse()
+    parser.print_help()
+
+    # parse the argsparser
+    unknown = config.parse_known_args(args)
+    config.pprint()
+    # check the current config with the reference config
+    assert config == config_ref
+    assert unknown == unknown_args

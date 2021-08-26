@@ -16,7 +16,6 @@ class SimpleConfig(Coqpit):
     val_c: Union[int, str] = None
     val_d: List[List] = None
 
-
     def check_values(
         self,
     ):
@@ -38,12 +37,7 @@ def test_parse_argparse():
     print(config.pprint())
 
     # reference config that we like to match with the config above
-    config_ref = SimpleConfig(
-        val_a=222,
-        val_b=999,
-        val_c=None,
-        val_d=None
-    )
+    config_ref = SimpleConfig(val_a=222, val_b=999, val_c=None, val_d=None)
 
     # create and init argparser with Coqpit
     parser = config.init_argparse(relaxed_parser=True)

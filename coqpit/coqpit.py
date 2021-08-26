@@ -536,7 +536,7 @@ def _init_argparse(
                 " [!] Parsing `Union` field from argparse is not yet implemented. Please create an issue."
             )
     elif issubclass(field_type, Serializable):
-        return field_default.init_argparse(
+        return default.init_argparse(
             parser, arg_prefix=arg_prefix, help_prefix=help_prefix, relaxed_parser=relaxed_parser
         )
     elif isinstance(field_type(), bool):
@@ -735,12 +735,12 @@ class Coqpit(Serializable, MutableMapping):
         """
         if not args:
             # If args was not specified, parse from sys.argv
-            parser = cls.init_argparse(arg_prefix=arg_prefix)
-            args = parser.parse_args()
+            parser = cls.init_argparse(cls, arg_prefix=arg_prefix)
+            args = parser.parse_args()  # pylint: disable=E1120, E1111
         if isinstance(args, list):
             # If a list was passed in (eg. the second result of `parse_known_args`, run that through argparse first to get a parsed Namespace
-            parser = cls.init_argparse(arg_prefix=arg_prefix)
-            args = parser.parse_args(args)
+            parser = cls.init_argparse(cls, arg_prefix=arg_prefix)
+            args = parser.parse_args(args) # pylint: disable=E1120, E1111
 
         # Handle list and object attributes with defaults, which can be modified
         # directly (eg. --coqpit.list.0.val_a 1), by constructing real objects
@@ -833,9 +833,8 @@ class Coqpit(Serializable, MutableMapping):
         self.parse_args(args)
         return unknown
 
-    @classmethod
     def init_argparse(
-        cls,
+        self,
         parser: Optional[argparse.ArgumentParser] = None,
         arg_prefix="coqpit",
         help_prefix="",
@@ -854,9 +853,15 @@ class Coqpit(Serializable, MutableMapping):
         """
         if not parser:
             parser = argparse.ArgumentParser()
-        class_fields = fields(cls)
+        class_fields = fields(self)
         for field in class_fields:
-            field_default = field.default if field.default is not _MISSING else None
+            if field.name in vars(self):
+                # use the current value of the field
+                # prevent dropping the current value
+                field_default = vars(self)[field.name]
+            else:
+                # use the default value of the field
+                field_default = field.default if field.default is not _MISSING else None
             field_type = field.type
             field_default_factory = field.default_factory
             field_help = _get_help(field)
