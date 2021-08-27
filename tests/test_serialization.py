@@ -65,7 +65,7 @@ def test_serizalization_fileobject():
         ref_config.save_json(f)
 
     new_config = Group()
-    with open(file_path, "w", encoding="utf-8") as f:
+    with open(file_path, "r", encoding="utf-8") as f:
         new_config.load_json(f)
     new_config.pprint()
 
