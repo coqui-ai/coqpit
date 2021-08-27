@@ -43,3 +43,7 @@ jobs:
         run: make lint
       - name: Unit tests
         run: make test
+      - name: Test package build
+        run: |
+          pip install build
+          python -m build
