@@ -62,7 +62,7 @@ def is_dict(arg_type: Any) -> bool:
         bool: True if input type is `dict`
     """
     try:
-        return arg_type is dict or arg_type.__origin__ is dict
+        return arg_type is dict or arg_type is Dict or arg_type.__origin__ is dict
     except AttributeError:
         return False
 
@@ -740,7 +740,7 @@ class Coqpit(Serializable, MutableMapping):
         if isinstance(args, list):
             # If a list was passed in (eg. the second result of `parse_known_args`, run that through argparse first to get a parsed Namespace
             parser = cls.init_argparse(cls, arg_prefix=arg_prefix)
-            args = parser.parse_args(args) # pylint: disable=E1120, E1111
+            args = parser.parse_args(args)  # pylint: disable=E1120, E1111
 
         # Handle list and object attributes with defaults, which can be modified
         # directly (eg. --coqpit.list.0.val_a 1), by constructing real objects
