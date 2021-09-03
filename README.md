@@ -295,3 +295,5 @@ Install the pre-commit hook to automatically check your commits for style and hi
 ```bash
 $ python .pre-commit-2.12.1.pyz install
 ```
+
+<img src="https://static.scarf.sh/a.png?x-pxid=cd0232a8-ead2-4f1f-87f5-0dd8ec33ee51" />
