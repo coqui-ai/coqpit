@@ -547,6 +547,8 @@ def _init_argparse(
             f"--{arg_prefix}",
             type=parse_bool,
             default=field_default,
+            help=f"Coqpit Field: {help_prefix}",
+            metavar="true/false",
         )
     elif is_primitive_type(field_type):
         parser.add_argument(
