@@ -502,9 +502,6 @@ def _init_argparse(
 
         if not has_default or field_default_factory is list:
             if not is_primitive_type(list_field_type) and not relaxed_parser:
-                print(
-                    f"AAAAAAA field_name:{field_name}, field_default:{field_default}, field_default_factory:{field_default_factory}, list_field_type:{list_field_type}"
-                )
                 raise NotImplementedError(" [!] Empty list with non primitive inner type is currently not supported.")
 
             # If the list's default value is None, the user can specify the entire list by passing multiple parameters
@@ -550,6 +547,8 @@ def _init_argparse(
             f"--{arg_prefix}",
             type=parse_bool,
             default=field_default,
+            help=f"Coqpit Field: {help_prefix}",
+            metavar="true/false",
         )
     elif is_primitive_type(field_type):
         parser.add_argument(
