@@ -408,7 +408,7 @@ class Serializable:
                 init_kwargs[field.name] = value
                 continue
             if value == MISSING:
-                raise ValueError("deserialized with unknown value for {} in {}".format(field.name, self.__name__))
+                raise ValueError(f"deserialized with unknown value for {field.name} in {self.__name__}")
             value = _deserialize(value, field.type)
             init_kwargs[field.name] = value
         for k, v in init_kwargs.items():
@@ -438,7 +438,7 @@ class Serializable:
                 init_kwargs[field.name] = value
                 continue
             if value == MISSING:
-                raise ValueError("Deserialized with unknown value for {} in {}".format(field.name, cls.__name__))
+                raise ValueError(f"Deserialized with unknown value for {field.name} in {cls.__name__}")
             value = _deserialize(value, field.type)
             init_kwargs[field.name] = value
         return cls(**init_kwargs)
