@@ -1,4 +1,4 @@
 pylint
 black
-nose
+pytest
 coverage
