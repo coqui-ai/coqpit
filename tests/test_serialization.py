@@ -31,6 +31,18 @@ class Reference(Coqpit):
     )
 
 
+def assert_equal(a: Reference, b: Reference):
+    assert len(a) == len(b)
+    assert a.name == b.name
+    assert a.size == b.size
+    assert a.people[0].name == b.people[0].name
+    assert a.people[1].name == b.people[1].name
+    assert a.people[2].name == b.people[2].name
+    assert a.people[0].age == b.people[0].age
+    assert a.people[1].age == b.people[1].age
+    assert a.people[2].age == b.people[2].age
+
+
 def test_serizalization():
     file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_serialization.json")
 
@@ -41,13 +53,20 @@ def test_serizalization():
     new_config.load_json(file_path)
     new_config.pprint()
 
-    # check values
-    assert len(ref_config) == len(new_config)
-    assert ref_config.name == new_config.name
-    assert ref_config.size == new_config.size
-    assert ref_config.people[0].name == new_config.people[0].name
-    assert ref_config.people[1].name == new_config.people[1].name
-    assert ref_config.people[2].name == new_config.people[2].name
-    assert ref_config.people[0].age == new_config.people[0].age
-    assert ref_config.people[1].age == new_config.people[1].age
-    assert ref_config.people[2].age == new_config.people[2].age
+    assert_equal(ref_config, new_config)
+
+
+def test_serizalization_fileobject():
+    """Test serialization to and from file-like objects instead of paths"""
+    file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_serialization_file.json")
+
+    ref_config = Reference()
+    with open(file_path, "w", encoding="utf-8") as f:
+        ref_config.save_json(f)
+
+    new_config = Group()
+    with open(file_path, "r", encoding="utf-8") as f:
+        new_config.load_json(f)
+    new_config.pprint()
+
+    assert_equal(ref_config, new_config)

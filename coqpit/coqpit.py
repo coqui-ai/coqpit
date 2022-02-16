@@ -1,4 +1,5 @@
 import argparse
+import contextlib
 import functools
 import json
 import operator
@@ -696,28 +697,35 @@ class Coqpit(Serializable, MutableMapping):
         """Returns a JSON string representation."""
         return json.dumps(asdict(self), indent=4, default=_coqpit_json_default)
 
-    def save_json(self, file_name: str) -> None:
+    def save_json(self, file_name: Union[str, Path, Any]) -> None:
         """Save Coqpit to a json file.
 
         Args:
-            file_name (str): path to the output json file.
+            file_name (str, Path or file-like object): path to the output json file or a file-like object to write to.
         """
-        with open(file_name, "w", encoding="utf8") as f:
+        if isinstance(file_name, (Path, str)):
+            opened = open(file_name, "w", encoding="utf8")
+        else:
+            opened = contextlib.nullcontext(file_name)
+        with opened as f:
             json.dump(asdict(self), f, indent=4)
 
-    def load_json(self, file_name: str) -> None:
+    def load_json(self, file_name: Union[str, Path, Any]) -> None:
         """Load a json file and update matching config fields with type checking.
         Non-matching parameters in the json file are ignored.
 
         Args:
-            file_name (str): path to the json file.
+            file_name (str, Path or file-like object): Path to the json file or a file-like object to read from.
 
         Returns:
             Coqpit: new Coqpit with updated config fields.
         """
-        with open(file_name, "r", encoding="utf8") as f:
-            input_str = f.read()
-            dump_dict = json.loads(input_str)
+        if isinstance(file_name, (Path, str)):
+            opened = open(file_name, "r", encoding="utf8")
+        else:
+            opened = contextlib.nullcontext(file_name)
+        with opened as f:
+            dump_dict = json.load(f)
         # TODO: this looks stupid 💆
         self = self.deserialize(dump_dict)  # pylint: disable=self-cls-assignment
         self.check_values()
