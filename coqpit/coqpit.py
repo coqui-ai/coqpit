@@ -578,6 +578,9 @@ class Coqpit(Serializable, MutableMapping):
 
     _initialized = False
 
+    def __init_subclass__(cls, **kwargs):
+        return dataclass(_cls=cls, **kwargs)
+
     def _is_initialized(self):
         """Check if Coqpit is initialized. Useful to prevent running some aux functions
         at the initialization when no attribute has been defined."""
