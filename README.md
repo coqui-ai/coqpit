@@ -58,7 +58,7 @@ What I need from a ML configuration library...
 ```python
 import os
 from dataclasses import asdict, dataclass, field
-
+from typing import List, Union
 from coqpit import MISSING, Coqpit, check_argument
 
 
@@ -75,7 +75,7 @@ class SimpleConfig(Coqpit):
     val_dict: dict = field(default_factory=lambda: {"val_aa": 10, "val_ss": "This is in a dict."})
     # list of list
     val_listoflist: List[List] = field(default_factory=lambda: [[1, 2], [3, 4]])
-    val_listofunion: List[List[Union[str]]] = field(default_factory=lambda: [[1, 3], [1, "Hi!"]])
+    val_listofunion: List[List[Union[str,int]]] = field(default_factory=lambda: [[1, 3], [1, "Hi!"]])
 
     def check_values(
         self,
