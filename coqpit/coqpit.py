@@ -115,9 +115,9 @@ def _default_value(x: Field):
     Returns:
         object: default value of the input Field.
     """
-    if x.default != MISSING and x.default != _MISSING:
+    if x.default_factory not in (MISSING, _MISSING):
         return x.default
-    if x.default_factory != MISSING and x.default_factory != _MISSING:
+    if x.default_factory not in (MISSING, _MISSING):
         return x.default_factory()
     return x.default
 
@@ -403,8 +403,8 @@ class Serializable:
                     init_kwargs[field.name] = vars(self)[field.name]
                     continue
                 # if not in self and the default value is not Missing use it
-                default_value = _default_value(field) 
-                if default_value != MISSING and default_value != _MISSING:
+                default_value = _default_value(field)
+                if default_value not in (MISSING, _MISSING):
                     init_kwargs[field.name] = default_value
                     continue
                 raise ValueError(f' [!] Missing required field "{field.name}"')
@@ -438,8 +438,8 @@ class Serializable:
                     init_kwargs[field.name] = vars(cls)[field.name]
                     continue
                 # if not in cls and the default value is not Missing use it
-                default_value = _default_value(field) 
-                if default_value != _MISSING and default_value != MISSING:
+                default_value = _default_value(field)
+                if default_value not in (MISSING, _MISSING):
                     init_kwargs[field.name] = default_value
                     continue
                 raise ValueError(f' [!] Missing required field "{field.name}"')
