@@ -21,6 +21,8 @@ class Reference(Coqpit):
             Person(name="Ceren", age=15),
         ]
     )
+    people_ids: List[int] = field(
+        default_factory=lambda: [1, 2, 3])
 
 
 @dataclass

@@ -115,7 +115,7 @@ def _default_value(x: Field):
     Returns:
         object: default value of the input Field.
     """
-    if x.default_factory not in (MISSING, _MISSING):
+    if x.default not in (MISSING, _MISSING):
         return x.default
     if x.default_factory not in (MISSING, _MISSING):
         return x.default_factory()
