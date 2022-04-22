@@ -402,11 +402,6 @@ class Serializable:
                 if field.name in vars(self):
                     init_kwargs[field.name] = vars(self)[field.name]
                     continue
-                # if not in self and the default value is not Missing use it
-                default_value = _default_value(field)
-                if default_value not in (MISSING, _MISSING):
-                    init_kwargs[field.name] = default_value
-                    continue
                 raise ValueError(f' [!] Missing required field "{field.name}"')
             value = data.get(field.name, _default_value(field))
             if value is None:
