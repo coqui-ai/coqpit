@@ -497,9 +497,12 @@ def _init_argparse(
         )
     elif is_list(field_type):
         # TODO: We need a more clear help msg for lists.
-        if len(field_type.__args__) > 1 and not relaxed_parser:
-            raise ValueError(" [!] Coqpit does not support multi-type hinted 'List'")
-        list_field_type = field_type.__args__[0]
+        if hasattr(field_type, "__args__"):  # if the list is hinted
+            if len(field_type.__args__) > 1 and not relaxed_parser:
+                raise ValueError(" [!] Coqpit does not support multi-type hinted 'List'")
+            list_field_type = field_type.__args__[0]
+        else:
+            raise ValueError(" [!] Coqpit does not support un-hinted 'List'")
 
         # TODO: handle list of lists
         if is_list(list_field_type) and relaxed_parser:
