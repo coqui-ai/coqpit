@@ -57,7 +57,7 @@ setup(
         "develop": develop,
     },
     install_requires=requirements,
-    python_requires=">=3.6.0",
+    python_requires=">=3.7.0",
     classifiers=[
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
