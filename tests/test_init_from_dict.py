@@ -21,8 +21,7 @@ class Reference(Coqpit):
             Person(name="Ceren", age=15),
         ]
     )
-    people_ids: List[int] = field(
-        default_factory=lambda: [1, 2, 3])
+    people_ids: List[int] = field(default_factory=lambda: [1, 2, 3])
 
 
 @dataclass
@@ -31,10 +30,10 @@ class WithRequired(Coqpit):
 
 
 def test_new_from_dict():
-    ref_config = Reference(name="Fancy", size=3 ** 10, people=[Person(name="Anonymous", age=42)])
+    ref_config = Reference(name="Fancy", size=3**10, people=[Person(name="Anonymous", age=42)])
 
     new_config = Reference.new_from_dict(
-        {"name": "Fancy", "size": 3 ** 10, "people": [{"name": "Anonymous", "age": 42}]}
+        {"name": "Fancy", "size": 3**10, "people": [{"name": "Anonymous", "age": 42}]}
     )
 
     # check values
