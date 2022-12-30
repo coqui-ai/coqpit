@@ -27,7 +27,7 @@ class Reference(Coqpit):
     val_e: int = 257
     val_f: float = -10.21
     val_g: str = "Coqpit is really great!"
-    val_same: int = 10.21  # duplicate fields are override by the merged Coqpit class.
+    val_same: float = 10.21  # duplicate fields are override by the merged Coqpit class.
 
 
 def test_config_merge():

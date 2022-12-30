@@ -1,14 +1,37 @@
+# pylint: disable=too-many-lines
 import argparse
+import dataclasses
 import functools
 import json
 import operator
 import os
+import sys
+import types as types_native
+import typing
 from collections.abc import MutableMapping
 from dataclasses import MISSING as _MISSING
 from dataclasses import Field, asdict, dataclass, fields, is_dataclass, replace
 from pathlib import Path
 from pprint import pprint
-from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union, get_type_hints
+from typing import (
+    Any,
+    Dict,
+    FrozenSet,
+    Generic,
+    List,
+    Literal,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TypedDict,
+    TypeVar,
+    Union,
+    get_type_hints,
+)
+
+import typing_extensions
+from typing_extensions import TypeGuard
 
 T = TypeVar("T")
 MISSING: Any = "???"
@@ -61,10 +84,15 @@ def is_dict(arg_type: Any) -> bool:
     Returns:
         bool: True if input type is `dict`
     """
+    # pylint: disable=bare-except
     try:
         return arg_type is dict or arg_type is Dict or arg_type.__origin__ is dict
-    except AttributeError:
+    except:
         return False
+
+
+def is_pep604_union(arg_type: Type[Any]) -> bool:
+    return sys.version_info >= (3, 10) and arg_type is types_native.UnionType  # type: ignore
 
 
 def is_union(arg_type: Any) -> bool:
@@ -135,6 +163,203 @@ def _is_optional_field(field) -> bool:
     return type(None) in getattr(field.type, "__args__")
 
 
+# ---------------------------------------------------------------------------- #
+#                             Type Checking                                    #
+# ---------------------------------------------------------------------------- #
+
+
+class Error(TypeError):
+    def __init__(self, arg_type: Type[Any], value: Any, path: Optional[List[str]] = None):
+        # pylint: disable=super-init-not-called
+        if type(self) == Error:  # pylint: disable=unidiomatic-typecheck
+            raise ValueError(" [!] `Error` must not be instantiated directly")
+        self.arg_type = arg_type
+        self.value = value
+        self.path = path or []
+
+    def __str__(self) -> str:
+        raise NotImplementedError()
+
+
+Result = Optional[Error]  # returns error context
+
+
+def _path_to_str(path: List[str]) -> str:
+    return " -> ".join(reversed(path))
+
+
+class CoqpitTypeError(Error):
+    def __init__(
+        self,
+        arg_type: Type[Any],
+        value: Any,
+        path: Optional[List[str]] = None,
+        exception: Optional[Any] = None,
+    ):
+        super().__init__(arg_type, value, path)
+        self.arg_type = arg_type
+        self.value = value
+        self.path = path or []
+        self.exception = exception
+
+    def __str__(self):
+        path = _path_to_str(self.path)
+        msg = (
+            f" [!] Error in field '{path}'. Expected type {self.arg_type}, got {type(self.value)} (value: {self.value})"
+        )
+        if self.exception is not None:
+            msg += f"\n{type(self.exception)}: {self.exception}"
+        return msg
+
+
+def is_error(ret: Result) -> TypeGuard[Error]:
+    return ret is not None
+
+
+def check_dict(value: Dict[Any, Any], ty: Type[Dict[Any, Any]]) -> Result:
+    args = typing_extensions.get_args(ty)
+    ty_key = args[0]
+    ty_item = args[1]
+    for k, v in value.items():
+        err = check(k, ty_key)
+        if is_error(err):
+            return err
+        err = check(v, ty_item)
+        if err is not None:
+            err.path.append(k)
+            return err
+    return None
+
+
+def check_typeddict(value: Any, arg_type: Type[Type[Any]]) -> Result:
+    if not isinstance(value, dict):
+        return CoqpitTypeError(arg_type, value)
+    is_total: bool = arg_type.__total__  # type: ignore
+    for k, aty in typing.get_type_hints(arg_type).items():
+        if k not in value:
+            if is_total:
+                return CoqpitTypeError(aty, value, [k])
+            continue
+        v = value[k]
+        err = check(v, aty)
+        if err is not None:
+            err.path.append(k)
+            return err
+    return None
+
+
+def check_dataclass(value: Any, arg_type: Type[Any]) -> Result:
+    if not dataclasses.is_dataclass(value):
+        return CoqpitTypeError(arg_type, value)
+    for k, aty in typing.get_type_hints(arg_type).items():
+        v = getattr(value, k)
+        err = check(v, aty)
+        if err is not None:
+            err.path.append(k)
+            return err
+    return None
+
+
+def check_container(value: Any, arg_type: Union[Type[List[Any]], Type[Set[Any]], Type[FrozenSet[Any]]]) -> Result:
+    ty_item = typing_extensions.get_args(arg_type)[0]
+    for v in value:
+        err = check(v, ty_item)
+        if is_error(err):
+            return err
+    return None
+
+
+def check_tuple(value: Any, arg_type: Type[Tuple[Any, ...]]) -> Result:
+    types = typing_extensions.get_args(arg_type)
+    if len(types) == 2 and types[1] == ...:
+        # arbitrary length tuple (e.g. Tuple[int, ...])
+        for v in value:
+            err = check(v, types[0])
+            if is_error(err):
+                return err
+        return None
+
+    if len(value) != len(types):
+        return CoqpitTypeError(arg_type=arg_type, value=value)
+    for v, t in zip(value, types):
+        err = check(v, t)
+        if is_error(err):
+            return err
+    return None
+
+
+def check_literal(value: Any, arg_type: Type[Any]) -> Result:
+    if all(value != t for t in typing_extensions.get_args(arg_type)):
+        return CoqpitTypeError(arg_type=arg_type, value=value)
+    return None
+
+
+def check_union(value: Any, arg_type: Type[Any]) -> Result:
+    if any(not is_error(check(value, t)) for t in typing_extensions.get_args(arg_type)):
+        return None
+    return CoqpitTypeError(arg_type=arg_type, value=value)
+
+
+def check_int(value: Any, arg_type: Type[Any]) -> Result:
+    if isinstance(value, bool) or not isinstance(value, arg_type):
+        return CoqpitTypeError(arg_type=arg_type, value=value)
+    return None
+
+
+def is_typeddict(arg_type: Type[Any]) -> TypeGuard[Type[TypedDict]]:  # type: ignore
+    T = "_TypedDictMeta"  # pylint: disable=redefined-outer-name
+    for mod in [typing, typing_extensions]:
+        if hasattr(mod, T) and isinstance(arg_type, getattr(mod, T)):
+            return True
+    return False
+
+
+def check(value: Any, arg_type: Type[Any]) -> Result:
+    # pylint: disable=too-many-return-statements
+    # allow None for every type
+    if value is None:
+        return None
+
+    if not isinstance(value, type) and dataclasses.is_dataclass(arg_type):
+        # dataclass
+        return check_dataclass(value, arg_type)
+    if is_typeddict(arg_type):
+        # maybe use`typing.is_typeddict`
+        return check_typeddict(value, arg_type)
+    origin_type = typing_extensions.get_origin(arg_type)
+    if origin_type is not None:
+        # generics
+        err = check(value, origin_type)
+        if is_error(err):
+            return err
+
+        if origin_type is list or origin_type is set or origin_type is frozenset:
+            err = check_container(value, arg_type)
+        elif origin_type is dict:
+            err = check_dict(value, arg_type)  # type: ignore
+        elif origin_type is tuple:
+            err = check_tuple(value, arg_type)
+        elif origin_type is Literal:
+            err = check_literal(value, arg_type)
+        elif origin_type is Union or is_pep604_union(origin_type):
+            err = check_union(value, arg_type)
+        return err
+
+    if isinstance(arg_type, type):
+        # concrete type
+        if is_pep604_union(arg_type):
+            pass
+        elif issubclass(arg_type, bool):
+            if not isinstance(value, arg_type):
+                return CoqpitTypeError(arg_type=arg_type, value=value)
+        elif issubclass(arg_type, int):  # For boolean
+            return check_int(value, arg_type)
+        elif not isinstance(value, arg_type):
+            return CoqpitTypeError(arg_type=arg_type, value=value)
+
+    return None
+
+
 def my_get_type_hints(
     cls,
 ):
@@ -150,6 +375,11 @@ def my_get_type_hints(
         r_dict.update(my_get_type_hints(base))
     r_dict.update(get_type_hints(cls))
     return r_dict
+
+
+# ---------------------------------------------------------------------------- #
+#                             Serialize / Deserialize                          #
+# ---------------------------------------------------------------------------- #
 
 
 def _serialize(x):
@@ -291,43 +521,6 @@ def _deserialize(x: Any, field_type: Any) -> Any:
     raise ValueError(f" [!] '{type(x)}' value type of '{x}' does not match '{field_type}' field type.")
 
 
-# Recursive setattr (supports dotted attr names)
-def rsetattr(obj, attr, val):
-    def _setitem(obj, attr, val):
-        return operator.setitem(obj, int(attr), val)
-
-    pre, _, post = attr.rpartition(".")
-    setfunc = _setitem if post.isnumeric() else setattr
-
-    return setfunc(rgetattr(obj, pre) if pre else obj, post, val)
-
-
-# Recursive getattr (supports dotted attr names)
-def rgetattr(obj, attr, *args):
-    def _getitem(obj, attr):
-        return operator.getitem(obj, int(attr), *args)
-
-    def _getattr(obj, attr):
-        getfunc = _getitem if attr.isnumeric() else getattr
-        return getfunc(obj, attr, *args)
-
-    return functools.reduce(_getattr, [obj] + attr.split("."))
-
-
-# Recursive setitem (supports dotted attr names)
-def rsetitem(obj, attr, val):
-    pre, _, post = attr.rpartition(".")
-    return operator.setitem(rgetitem(obj, pre) if pre else obj, post, val)
-
-
-# Recursive getitem (supports dotted attr names)
-def rgetitem(obj, attr, *args):
-    def _getitem(obj, attr):
-        return operator.getitem(obj, int(attr) if attr.isnumeric() else attr, *args)
-
-    return functools.reduce(_getitem, [obj] + attr.split("."))
-
-
 @dataclass
 class Serializable:
     """Gives serialization ability to any inheriting dataclass."""
@@ -407,8 +600,8 @@ class Serializable:
             if value is None:
                 init_kwargs[field.name] = value
                 continue
-            if value == MISSING:
-                raise ValueError(f"deserialized with unknown value for {field.name} in {self.__name__}")
+            # if value == MISSING:
+            #     raise ValueError(f"deserialized with unknown value for {field.name} in {self.__name__}")
             value = _deserialize(value, field.type)
             init_kwargs[field.name] = value
         for k, v in init_kwargs.items():
@@ -442,8 +635,8 @@ class Serializable:
             if value is None:
                 init_kwargs[field.name] = value
                 continue
-            if value == MISSING:
-                raise ValueError(f"Deserialized with unknown value for {field.name} in {cls.__name__}")
+            # if value == MISSING:
+            #     raise ValueError(f"Deserialized with unknown value for {field.name} in {cls.__name__}")
             value = _deserialize(value, field.type)
             init_kwargs[field.name] = value
         return cls(**init_kwargs)
@@ -452,6 +645,46 @@ class Serializable:
 # ---------------------------------------------------------------------------- #
 #                        Argument Parsing from `argparse`                      #
 # ---------------------------------------------------------------------------- #
+
+
+def rsetattr(obj, attr, val):
+    "Recursive setattr (supports dotted attr names)"
+
+    def _setitem(obj, attr, val):
+        return operator.setitem(obj, int(attr), val)
+
+    pre, _, post = attr.rpartition(".")
+    setfunc = _setitem if post.isnumeric() else setattr
+
+    return setfunc(rgetattr(obj, pre) if pre else obj, post, val)
+
+
+def rgetattr(obj, attr, *args):
+    "Recursive getattr (supports dotted attr names)"
+
+    def _getitem(obj, attr):
+        return operator.getitem(obj, int(attr), *args)
+
+    def _getattr(obj, attr):
+        getfunc = _getitem if attr.isnumeric() else getattr
+        return getfunc(obj, attr, *args)
+
+    return functools.reduce(_getattr, [obj] + attr.split("."))
+
+
+def rsetitem(obj, attr, val):
+    "Recursive setitem (supports dotted attr names)"
+    pre, _, post = attr.rpartition(".")
+    return operator.setitem(rgetitem(obj, pre) if pre else obj, post, val)
+
+
+def rgetitem(obj, attr, *args):
+    "Recursive getitem (supports dotted attr names)"
+
+    def _getitem(obj, attr):
+        return operator.getitem(obj, int(attr) if attr.isnumeric() else attr, *args)
+
+    return functools.reduce(_getitem, [obj] + attr.split("."))
 
 
 def _get_help(field):
@@ -593,6 +826,9 @@ class Coqpit(Serializable, MutableMapping):
 
     def __post_init__(self):
         self._initialized = True
+        err = check_dataclass(self, type(self))
+        if err:
+            raise err
         try:
             self.check_values()
         except AttributeError:
@@ -625,7 +861,8 @@ class Coqpit(Serializable, MutableMapping):
         """Check if the mandatory field is defined when accessing it."""
         value = super().__getattribute__(arg)
         if isinstance(value, str) and value == "???":
-            raise AttributeError(f" [!] MISSING field {arg} must be defined.")
+            # raise MISSINGError(arg)
+            pass
         return value
 
     def __contains__(self, arg: str):
