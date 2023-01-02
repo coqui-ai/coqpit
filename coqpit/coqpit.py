@@ -218,8 +218,12 @@ def is_error(ret: Result) -> TypeGuard[Error]:
 
 def check_dict(value: Dict[Any, Any], ty: Type[Dict[Any, Any]]) -> Result:
     args = typing_extensions.get_args(ty)
-    ty_key = args[0]
-    ty_item = args[1]
+    try:
+        # Allow Dict without type hints
+        ty_key = args[0]
+        ty_item = args[1]
+    except IndexError:
+        return None
     for k, v in value.items():
         err = check(k, ty_key)
         if is_error(err):
@@ -261,7 +265,10 @@ def check_dataclass(value: Any, arg_type: Type[Any]) -> Result:
 
 
 def check_container(value: Any, arg_type: Union[Type[List[Any]], Type[Set[Any]], Type[FrozenSet[Any]]]) -> Result:
-    ty_item = typing_extensions.get_args(arg_type)[0]
+    try:
+        ty_item = typing_extensions.get_args(arg_type)[0]
+    except IndexError:
+        raise ValueError(f" [!] Unsupported container type: value {value} - type {arg_type}")
     for v in value:
         err = check(v, ty_item)
         if is_error(err):
@@ -302,6 +309,9 @@ def check_union(value: Any, arg_type: Type[Any]) -> Result:
 
 def check_int(value: Any, arg_type: Type[Any]) -> Result:
     if isinstance(value, bool) or not isinstance(value, arg_type):
+        # allow int value to be defined for float type for convenience
+        if isinstance(value, int) and arg_type == float:
+            return None
         return CoqpitTypeError(arg_type=arg_type, value=value)
     return None
 
@@ -514,7 +524,7 @@ def _deserialize(x: Any, field_type: Any) -> Any:
         return _deserialize_list(x, field_type)
     if is_union(field_type):
         return _deserialize_union(x, field_type)
-    if issubclass(field_type, Serializable):
+    if issubclass(field_type, (Coqpit, Serializable)):
         return field_type.deserialize_immutable(x)
     if is_primitive_type(field_type):
         return _deserialize_primitive_types(x, field_type)
