@@ -2,7 +2,7 @@ import os
 from dataclasses import field
 from typing import List
 
-from coqpit import Coqpit
+from coqpit import Coqpit, CoqpitTypeError
 
 
 class Person(Coqpit):
@@ -49,3 +49,15 @@ def test_serizalization():
     assert ref_config.people[0].age == new_config.people[0].age
     assert ref_config.people[1].age == new_config.people[1].age
     assert ref_config.people[2].age == new_config.people[2].age
+
+
+def test_faulty_deserialization():
+    """Try to load a json file with a type mismatch"""
+    file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_faulty_deserialization.json")
+
+    try:
+        ref_config = Reference()
+        ref_config.load_json(file_path)
+        assert False, "Should have failed"
+    except CoqpitTypeError as e:
+        pass
