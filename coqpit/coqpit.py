@@ -610,8 +610,8 @@ class Serializable:
             if value is None:
                 init_kwargs[field.name] = value
                 continue
-            # if value == MISSING:
-            #     raise ValueError(f"deserialized with unknown value for {field.name} in {self.__name__}")
+            if value == MISSING:
+                raise ValueError(f"deserialized with unknown value for {field.name} in {self.__name__}")
             value = _deserialize(value, field.type)
             init_kwargs[field.name] = value
         for k, v in init_kwargs.items():
@@ -620,7 +620,7 @@ class Serializable:
 
     @classmethod
     def deserialize_immutable(cls, data: dict) -> "Serializable":
-        """Parse input dictionary and desrialize its fields to a dataclass.
+        """Parse input dictionary and deserialize its fields to a dataclass.
 
         Returns:
             Newly created deserialized object.
@@ -645,8 +645,8 @@ class Serializable:
             if value is None:
                 init_kwargs[field.name] = value
                 continue
-            # if value == MISSING:
-            #     raise ValueError(f"Deserialized with unknown value for {field.name} in {cls.__name__}")
+            if value == MISSING:
+                raise ValueError(f"Deserialized with unknown value for {field.name} in {cls.__name__}")
             value = _deserialize(value, field.type)
             init_kwargs[field.name] = value
         return cls(**init_kwargs)
