@@ -818,8 +818,16 @@ def _init_argparse(
 #                               Main Coqpit Class                              #
 # ---------------------------------------------------------------------------- #
 
+import inspect
 
-@dataclass
+
+def is_decorated_with_dataclass(cls):
+    source = inspect.getsource(cls)
+    lines = source.split("\n")
+    decorator_lines = [line.strip() for line in lines if line.strip().startswith("@")]
+    return any("dataclass" in line for line in decorator_lines)
+
+
 class Coqpit(Serializable, MutableMapping):
     """Coqpit base class to be inherited by any Coqpit dataclasses.
     It overrides Python `dict` interface and provides `dict` compatible API.
@@ -833,6 +841,12 @@ class Coqpit(Serializable, MutableMapping):
         """Check if Coqpit is initialized. Useful to prevent running some aux functions
         at the initialization when no attribute has been defined."""
         return "_initialized" in vars(self) and self._initialized
+
+    def __init_subclass__(cls, **kwargs) -> Any:
+        """Auto decorate subclasses with `dataclass` decorator if not already decorated."""
+        super().__init_subclass__(**kwargs)
+        if not is_decorated_with_dataclass(cls):
+            cls = dataclass(cls)
 
     def __post_init__(self):
         self._initialized = True
@@ -872,7 +886,7 @@ class Coqpit(Serializable, MutableMapping):
         value = super().__getattribute__(arg)
         if isinstance(value, str) and value == "???":
             # raise MISSINGError(arg)
-            pass
+            raise ValueError(f" [!] Mandatory field '{arg}' is not defined.")
         return value
 
     def __contains__(self, arg: str):
