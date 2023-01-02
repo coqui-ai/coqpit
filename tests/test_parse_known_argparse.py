@@ -75,7 +75,7 @@ def test_parse_edited_argparse():
     config.val_a = 333
     config.val_b = 444
     config.val_c = "this is different"
-    config.mylist_with_default[0].val_a = 777      # pylint: disable=unsubscriptable-object
+    config.mylist_with_default[0].val_a = 777  # pylint: disable=unsubscriptable-object
     print(config.pprint())
 
     # reference config that we like to match with the config above

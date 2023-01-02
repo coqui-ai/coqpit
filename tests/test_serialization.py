@@ -59,5 +59,5 @@ def test_faulty_deserialization():
         ref_config = Reference()
         ref_config.load_json(file_path)
         assert False, "Should have failed"
-    except CoqpitTypeError as e:
+    except CoqpitTypeError:
         pass

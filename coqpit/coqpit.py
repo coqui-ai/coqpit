@@ -1,8 +1,8 @@
 # pylint: disable=too-many-lines
-import inspect
 import argparse
 import dataclasses
 import functools
+import inspect
 import json
 import operator
 import os
