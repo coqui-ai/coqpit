@@ -13,7 +13,7 @@ What I need from a ML configuration library...
     Python is good but not universal. Sometimes you train a ML model and use it on a different platform. So, you
     need your model configuration file importable by other programming languages.
 
-2. Simple dynamic value and type checking with default values.
+2. Simple dynamic value and type checking.
 
     If you are a beginner in a ML project, it is hard to guess the right values for your ML experiment. Therefore it is important
     to have some default values and know what range and type of input are expected for each field.
@@ -48,7 +48,6 @@ What I need from a ML configuration library...
 ## 🚫 Limitations
 - `Union` type dataclass fields cannot be parsed from console arguments due to the type ambiguity.
 - `JSON` is the only supported serialization format, although the others can be easily integrated.
-- `List`type with multiple item type annotations are not supported. (e.g. `List[int, str]`).
 - `dict` fields are parsed from console arguments as JSON str without type checking. (e.g `--val_dict '{"a":10, "b":100}'`).
 - `MISSING` fields cannot be avoided when parsing console arguments.
 
@@ -62,7 +61,7 @@ from typing import List, Union
 from coqpit import MISSING, Coqpit, check_argument
 
 
-@dataclass
+@dataclass  # Optional. Coqpit subclasses are auto decorated with dataclass
 class SimpleConfig(Coqpit):
     val_a: int = 10
     val_b: int = None
@@ -122,7 +121,6 @@ from coqpit import Coqpit, check_argument
 from typing import List, Union
 
 
-@dataclass
 class SimpleConfig(Coqpit):
     val_a: int = 10
     val_b: int = None
@@ -136,7 +134,6 @@ class SimpleConfig(Coqpit):
         check_argument('val_c', c, restricted=True)
 
 
-@dataclass
 class NestedConfig(Coqpit):
     val_d: int = 10
     val_e: int = None

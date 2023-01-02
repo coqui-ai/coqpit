@@ -4,12 +4,10 @@ from typing import List
 from coqpit.coqpit import Coqpit, check_argument
 
 
-@dataclass
 class SimplerConfig(Coqpit):
     val_a: int = field(default=None, metadata={"help": "this is val_a"})
 
 
-@dataclass
 class SimpleConfig(Coqpit):
     val_a: int = field(default=10, metadata={"help": "this is val_a of SimpleConfig"})
     val_b: int = field(default=None, metadata={"help": "this is val_b"})

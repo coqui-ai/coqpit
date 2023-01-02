@@ -1,4 +1,5 @@
 # pylint: disable=too-many-lines
+import inspect
 import argparse
 import dataclasses
 import functools
@@ -265,10 +266,11 @@ def check_dataclass(value: Any, arg_type: Type[Any]) -> Result:
 
 
 def check_container(value: Any, arg_type: Union[Type[List[Any]], Type[Set[Any]], Type[FrozenSet[Any]]]) -> Result:
+    # pytlint: disable=raise-missing-from
     try:
         ty_item = typing_extensions.get_args(arg_type)[0]
-    except IndexError:
-        raise ValueError(f" [!] Unsupported container type: value {value} - type {arg_type}")
+    except IndexError as exc:
+        raise TypeError(f" [!] Unsupported container type: value {value} - type {arg_type}") from exc
     for v in value:
         err = check(v, ty_item)
         if is_error(err):
@@ -531,7 +533,6 @@ def _deserialize(x: Any, field_type: Any) -> Any:
     raise ValueError(f" [!] '{type(x)}' value type of '{x}' does not match '{field_type}' field type.")
 
 
-@dataclass
 class Serializable:
     """Gives serialization ability to any inheriting dataclass."""
 
@@ -818,8 +819,6 @@ def _init_argparse(
 #                               Main Coqpit Class                              #
 # ---------------------------------------------------------------------------- #
 
-import inspect
-
 
 def is_decorated_with_dataclass(cls):
     source = inspect.getsource(cls)
@@ -844,6 +843,7 @@ class Coqpit(Serializable, MutableMapping):
 
     def __init_subclass__(cls, **kwargs) -> Any:
         """Auto decorate subclasses with `dataclass` decorator if not already decorated."""
+        # pylint: disable=self-cls-assignment
         super().__init_subclass__(**kwargs)
         if not is_decorated_with_dataclass(cls):
             cls = dataclass(cls)

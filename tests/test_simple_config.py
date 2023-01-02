@@ -1,11 +1,10 @@
 import os
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, field
 from typing import List, Union
 
-from coqpit.coqpit import Coqpit, check_argument
+from coqpit.coqpit import MISSING, Coqpit, check_argument
 
 
-@dataclass
 class SimpleConfig(Coqpit):
     val_a: int = 10
     val_b: int = None
@@ -14,7 +13,7 @@ class SimpleConfig(Coqpit):
     vol_e: bool = True
     # mandatory field
     # raise an error when accessing the value if it is not changed. It is a way to define
-    val_k: int = 0  # TODO: test MISSING again when needed
+    val_k: int = MISSING
     # optional field
     val_dict: dict = field(default_factory=lambda: {"val_aa": 10, "val_ss": "This is in a dict."})
     # list of list
@@ -35,7 +34,13 @@ class SimpleConfig(Coqpit):
 
 def test_simple_config():
     file_path = os.path.dirname(os.path.abspath(__file__))
-    config = SimpleConfig()
+
+    try:
+        config = SimpleConfig()
+    except ValueError as e:
+        print(" Mandatory field `val_k` is not set. Error: ", e)
+
+    config = SimpleConfig(val_k=10)
 
     # try MISSING class argument
     try:

@@ -1,2 +1,2 @@
 dataclasses;python_version=='3.6'
-typing_extensions;
+typing_extensions

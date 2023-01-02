@@ -1,24 +1,21 @@
 import os
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import List
 
 from coqpit import Coqpit
 
 
-@dataclass
 class Person(Coqpit):
     name: str = None
     age: int = None
 
 
-@dataclass
 class Group(Coqpit):
     name: str = None
     size: int = None
     people: List[Person] = None
 
 
-@dataclass
 class Reference(Coqpit):
     name: str = "Coqpit"
     size: int = 3
@@ -32,6 +29,7 @@ class Reference(Coqpit):
 
 
 def test_serizalization():
+    # pylint: disable=unsubscriptable-object
     file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_serialization.json")
 
     ref_config = Reference()

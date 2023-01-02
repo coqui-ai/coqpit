@@ -41,7 +41,6 @@ class A:
     c: B = field(default_factory=B)
 
 
-@dataclass
 class C(Coqpit):
     a: int = 0
     b: Dict[str, int] = field(default_factory=dict)

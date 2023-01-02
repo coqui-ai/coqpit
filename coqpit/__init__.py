@@ -1,1 +1,1 @@
-from coqpit.coqpit import MISSING, Coqpit, check_argument, dataclass
+from coqpit.coqpit import MISSING, Coqpit, check, check_argument, dataclass
