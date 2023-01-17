@@ -517,7 +517,7 @@ def _init_argparse(
                 f"--{arg_prefix}",
                 nargs="*",
                 type=list_field_type,
-                help=f"Coqpit Field: {help_prefix}",
+                help=help_prefix,
             )
         else:
             # If a default value is defined, just enable editing the values from argparse
@@ -555,7 +555,7 @@ def _init_argparse(
             f"--{arg_prefix}",
             type=parse_bool,
             default=field_default,
-            help=f"Coqpit Field: {help_prefix}",
+            help=help_prefix,
             metavar="true/false",
         )
     elif is_primitive_type(field_type):
@@ -563,7 +563,7 @@ def _init_argparse(
             f"--{arg_prefix}",
             default=field_default,
             type=field_type,
-            help=f"Coqpit Field: {help_prefix}",
+            help=help_prefix,
         )
     else:
         if not relaxed_parser:
