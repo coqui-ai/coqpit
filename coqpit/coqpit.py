@@ -331,7 +331,8 @@ def check(value: Any, arg_type: Type[Any]) -> Result:
     # allow None for every type
     if value is None:
         return None
-
+    if value is arg_type:
+        return None
     if not isinstance(value, type) and dataclasses.is_dataclass(arg_type):
         # dataclass
         return check_dataclass(value, arg_type)
