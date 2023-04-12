@@ -1,16 +1,14 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import List
 
 from coqpit import Coqpit
 
 
-@dataclass
 class Person(Coqpit):
     name: str = None
     age: int = None
 
 
-@dataclass
 class Reference(Coqpit):
     name: str = "Coqpit"
     size: int = 3
@@ -24,12 +22,12 @@ class Reference(Coqpit):
     people_ids: List[int] = field(default_factory=lambda: [1, 2, 3])
 
 
-@dataclass
 class WithRequired(Coqpit):
     name: str
 
 
 def test_new_from_dict():
+    # pylint: disable=unsubscriptable-object
     ref_config = Reference(name="Fancy", size=3**10, people=[Person(name="Anonymous", age=42)])
 
     new_config = Reference.new_from_dict(

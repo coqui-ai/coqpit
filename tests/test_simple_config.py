@@ -1,11 +1,10 @@
 import os
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, field
 from typing import List, Union
 
 from coqpit.coqpit import MISSING, Coqpit, check_argument
 
 
-@dataclass
 class SimpleConfig(Coqpit):
     val_a: int = 10
     val_b: int = None
@@ -18,7 +17,7 @@ class SimpleConfig(Coqpit):
     # optional field
     val_dict: dict = field(default_factory=lambda: {"val_aa": 10, "val_ss": "This is in a dict."})
     # list of list
-    val_listoflist: List[List] = field(default_factory=lambda: [[1, 2], [3, 4]])
+    val_listoflist: List[List[int]] = field(default_factory=lambda: [[1, 2], [3, 4]])
     val_listofunion: List[List[Union[str, int, bool]]] = field(
         default_factory=lambda: [[1, 3], [1, "Hi!"], [True, False]]
     )
@@ -35,7 +34,13 @@ class SimpleConfig(Coqpit):
 
 def test_simple_config():
     file_path = os.path.dirname(os.path.abspath(__file__))
-    config = SimpleConfig()
+
+    try:
+        config = SimpleConfig()
+    except ValueError as e:
+        print(" Mandatory field `val_k` is not set. Error: ", e)
+
+    config = SimpleConfig(val_k=10)
 
     # try MISSING class argument
     try:

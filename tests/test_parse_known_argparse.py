@@ -1,15 +1,13 @@
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, field
 from typing import List
 
 from coqpit.coqpit import Coqpit, check_argument
 
 
-@dataclass
 class SimplerConfig(Coqpit):
     val_a: int = field(default=None, metadata={"help": "this is val_a"})
 
 
-@dataclass
 class SimpleConfig(Coqpit):
     val_a: int = field(default=10, metadata={"help": "this is val_a of SimpleConfig"})
     val_b: int = field(default=None, metadata={"help": "this is val_b"})
@@ -77,7 +75,7 @@ def test_parse_edited_argparse():
     config.val_a = 333
     config.val_b = 444
     config.val_c = "this is different"
-    config.mylist_with_default[0].val_a = 777
+    config.mylist_with_default[0].val_a = 777  # pylint: disable=unsubscriptable-object
     print(config.pprint())
 
     # reference config that we like to match with the config above

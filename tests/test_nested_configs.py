@@ -1,11 +1,10 @@
 import os
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, field
 from typing import List, Union
 
 from coqpit import Coqpit, check_argument
 
 
-@dataclass
 class SimpleConfig(Coqpit):
     val_a: int = 10
     val_b: int = None
@@ -21,7 +20,6 @@ class SimpleConfig(Coqpit):
         check_argument("val_c", c, restricted=True)
 
 
-@dataclass
 class NestedConfig(Coqpit):
     val_d: int = 10
     val_e: int = None
